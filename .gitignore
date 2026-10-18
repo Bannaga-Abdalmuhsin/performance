@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+data/
+private/
+dist/snapshot.json
+*.pbix
+*.xlsb
+*.csv
+*.ndjson
+.DS_Store
+.openai/
