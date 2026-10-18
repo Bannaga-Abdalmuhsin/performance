@@ -31,10 +31,14 @@ Weeks implement DAX `WEEKNUM(Date,1)`: Sunday starts, January 1 belongs to week 
 
 The source's `Exceed SLA` Yes/No and explicit SLA exemption determine the separately labelled source SLA compliance. The original “Outperform SLA %” visuals actually reference ticket-change measures. Stored `Duration dax (Min)`, `SLA OUTAGES` and `SLA POWER` have no values in this PBIX. Their expressions are preserved in the audit. Network availability requires historical on-air inventory and is not inferred from ticket counts.
 
+## Account settings and data administration
+
+**User settings** contains the signed-in user’s email, display name, current dashboard role, password change and sign-out. It updates the existing Supabase Auth account. Display names are profile data and never control authorization. Data uploads and connection configuration are not available in the dashboard UI; manage cumulative snapshots through the database or the included import CLI.
+
 ## Upload future cumulative data
 
 1. GitHub Pages opens a separate sign-in screen. Use the email and password for an existing Supabase Auth account approved in `performance_members`. The dashboard, navigation and ticket actions remain hidden and inactive until access and the complete dataset are verified; signing out returns to this screen and clears loaded rows. Existing sessions are revalidated before opening the dashboard. GitHub account credentials are separate. The project URL and browser publishable key are configured; bundled connection settings take priority over stale browser settings. RLS still requires an approved account, and secret/service-role keys are rejected.
-2. Upload the **complete cumulative file** as CSV, JSON or JSON.GZ. Original source CSV headers or canonical database column names are accepted. The uploader selects the richest original row for each ticket. Review quarantined rows and duplicate counts, then save to PostgreSQL.
+2. Use the database or import CLI to upload the **complete cumulative file** as CSV, JSON or JSON.GZ. Original source CSV headers or canonical database column names are accepted. The uploader selects the richest original row for each ticket. Review quarantined rows and duplicate counts, then save to PostgreSQL.
 3. The uploader creates a pending import, writes its rows, then calls `performance_complete_import(batch_id, expected_count)`. PostgreSQL validates the count, ticket identities and absence of duplicate ticket numbers before publishing atomically. Pending/failed uploads leave the previous completed snapshot live.
 4. Every visible connected dashboard checks for a newer completed snapshot every 30 seconds and on returning to the tab. A new snapshot refreshes all six views. Filters are preserved; the default latest-period selection advances when newer coverage arrives.
 

@@ -18,6 +18,23 @@ export class PerformanceDatabase {
     const body=await r.json();if(!r.ok)throw new Error(body.msg||body.error_description||body.message||'Sign-in failed.');
     this.saveSession(body);return body.user;
   }
+  rememberUser(user){
+    if(!user?.id||(this.session?.user?.id&&user.id!==this.session.user.id))throw new Error('The account could not be verified. Sign out and sign in again.');
+    this.session.user=user;sessionStorage.setItem(SESSION,JSON.stringify(this.session));return user;
+  }
+  async getUser(){return this.rememberUser(await this.request('/auth/v1/user'));}
+  async updateProfile(displayName){
+    const name=String(displayName||'').trim();if(!name||name.length>100)throw new Error('Enter a display name between 1 and 100 characters.');
+    return this.rememberUser(await this.request('/auth/v1/user',{method:'PUT',body:JSON.stringify({data:{display_name:name}})}));
+  }
+  async changePassword(currentPassword,newPassword){
+    if(!currentPassword)throw new Error('Enter your current password.');
+    if(typeof newPassword!=='string'||newPassword.length<8)throw new Error('Use at least 8 characters for your new password.');
+    if(newPassword===currentPassword)throw new Error('Choose a different new password.');
+    const id=this.session?.user?.id,email=this.session?.user?.email;if(!id||!email)throw new Error('Sign in before changing your password.');
+    const verified=await this.login(email,currentPassword);if(verified.id!==id){this.session=null;sessionStorage.removeItem(SESSION);throw new Error('The account could not be verified. Sign in again.');}
+    return this.rememberUser(await this.request('/auth/v1/user',{method:'PUT',body:JSON.stringify({password:newPassword,current_password:currentPassword})}));
+  }
   async refresh() {
     if(!this.session)throw new Error('Sign in to the performance database first.');
     if(this.session.expires_at>Date.now()+60000)return;

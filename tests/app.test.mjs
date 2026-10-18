@@ -14,7 +14,7 @@ const cache=new Map();globalThis.localStorage={getItem:k=>cache.get(k)||null,set
 globalThis.location={hash:'#overview'};globalThis.history={replaceState(){}};
 globalThis.fetch=async(path)=>{
  if(!path.startsWith('https:'))return {ok:true,json:async()=>JSON.parse(readFileSync(new URL('../dist/'+path,import.meta.url),'utf8'))};
- const value=path.includes('/auth/v1/token')?{access_token:'test-token',refresh_token:'test-refresh',expires_in:3600,user:{id:'user1',email:'test@example.com'}}:path.includes('performance_members')?[{role:'analyst',active:true}]:path.includes('performance_imports')?[{id:'batch1',status:'complete',record_count:dataset.records.length,min_date:dataset.meta.min_date,max_date:dataset.meta.max_date,metadata:dataset.meta}]:path.includes('performance_tickets')?(path.includes('id=gt.')?[]:dataset.records):[];
+ const value=path.includes('/auth/v1/token')?{access_token:'test-token',refresh_token:'test-refresh',expires_in:3600,user:{id:'user1',email:'test@example.com'}}:path.includes('/auth/v1/user')?{id:'user1',email:'test@example.com',user_metadata:{display_name:'Test user'}}:path.includes('performance_members')?[{role:'analyst',active:true}]:path.includes('performance_imports')?[{id:'batch1',status:'complete',record_count:dataset.records.length,min_date:dataset.meta.min_date,max_date:dataset.meta.max_date,metadata:dataset.meta}]:path.includes('performance_tickets')?(path.includes('id=gt.')?[]:dataset.records):[];
  return {ok:true,status:200,json:async()=>value,text:async()=>JSON.stringify(value)};
 };
 const app=await import('../dist/app.mjs');await app.ready;
