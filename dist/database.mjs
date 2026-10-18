@@ -1,4 +1,4 @@
-import {FIELDS} from './core.mjs';
+import {FIELDS,IMPORT_FIELDS} from './core.mjs';
 const SESSION='cow-performance-session';
 export function validatePublicKey(key) {
   if(key.startsWith('sb_secret_'))throw new Error('Use the publishable key. Secret keys cannot be used in this page.');
@@ -54,7 +54,7 @@ export class PerformanceDatabase {
     const member=await this.member();if(!['admin','analyst'].includes(member.role))throw new Error('Analyst or administrator access is required to import.');
     const [batch]=await this.request('/rest/v1/performance_imports',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({source_name:meta.source_workbook||'Performance upload',source_sha256:meta.source_sha256||null,metadata:meta,min_date:meta.min_date,max_date:meta.max_date,record_count:records.length,status:'pending'})});
     try {
-      for(let i=0;i<records.length;i+=500){const chunk=records.slice(i,i+500).map(r=>({...Object.fromEntries(FIELDS.map(k=>[k,r[k]??null])),sla_excluded:!!r.sla_excluded,quality_flags:r.quality_flags||[],import_id:batch.id,updated_at:new Date().toISOString()}));
+      for(let i=0;i<records.length;i+=500){const chunk=records.slice(i,i+500).map(r=>({...Object.fromEntries(IMPORT_FIELDS.map(k=>[k,r[k]??null])),sla_excluded:!!r.sla_excluded,quality_flags:r.quality_flags||[],import_id:batch.id,updated_at:new Date().toISOString()}));
         await this.request('/rest/v1/performance_tickets?on_conflict=import_id,id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(chunk)});progress(Math.min(i+500,records.length),records.length);}
       await this.request('/rest/v1/rpc/performance_complete_import',{method:'POST',body:JSON.stringify({batch_id:batch.id,expected_count:records.length})});
     }catch(error){try{await this.request('/rest/v1/performance_imports?id=eq.'+batch.id,{method:'PATCH',body:JSON.stringify({status:'failed'})});}catch{}throw new Error('Import did not complete. The previous complete snapshot is still live. Retry the file as a new batch. '+error.message);}

@@ -13,6 +13,7 @@ test('loading follows keyset cursors even when the server returns fewer rows tha
  let page=0,imports=0;const db=dbMock(async path=>{
   if(path.includes('performance_imports')){imports++;assert.ok(path.includes('status=eq.complete'));return [{id:'batch1',status:'complete',record_count:2,min_date:'2026-08-01',max_date:'2026-08-31',metadata:{}}];}
   assert.ok(path.includes('import_id=eq.batch1'));
+  assert.ok(!path.includes('source_data'),'chart pages should not download every original source column');
   page++;if(page===1)return [{id:'a',created_date:'2026-08-01'}];if(page===2){assert.ok(path.includes('id=gt.a'));return [{id:'b',created_date:'2026-08-31'}];}return [];
  });const data=await db.load();assert.equal(data.records.length,2);assert.equal(page,3);assert.equal(imports,1);assert.equal(data.meta.import_id,'batch1');
 });
@@ -37,4 +38,10 @@ test('failed import is marked failed and never finalized',async()=>{
   if(options?.method==='PATCH')marked=JSON.parse(options.body).status==='failed';
   if(path.includes('performance_complete_import'))finalized=true;
  });await assert.rejects(()=>db.import([{id:'a'}],{min_date:'2026-08-01',max_date:'2026-08-31'}),/did not complete/);assert.equal(marked,true);assert.equal(finalized,false);
+});
+test('uploads preserve original business fields and duplicate audit before finalization',async()=>{
+ const calls=[];const db=dbMock(async(path,options)=>{calls.push({path,body:options?.body?JSON.parse(options.body):null});if(path.includes('performance_imports')&&options?.method==='POST')return [{id:'new-batch'}];return null;});
+ const source={Network:'MOBILE',Quantity:0,Closed:false},audit={policy:'ticket-richest-v1',kept:{row:20},removed:[{row:10}]};
+ await db.import([{id:'pbi:PR1',ticket_number:'PR1',source_data:source,deduplication:audit}],{min_date:'2026-09-01',max_date:'2026-09-30'});
+ const write=calls.find(c=>c.path.includes('performance_tickets'));assert.deepEqual(write.body[0].source_data,source);assert.deepEqual(write.body[0].deduplication,audit);assert.ok(calls.at(-1).path.includes('performance_complete_import'));
 });

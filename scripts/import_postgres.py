@@ -1,12 +1,17 @@
 """Import a prepared performance-data.json.gz using an approved Auth account.
 Credentials are read interactively and kept only in memory. Standard library only.
 """
-import base64, getpass, gzip, json, sys, urllib.request, urllib.error, urllib.parse
+import base64, getpass, gzip, json, sys, urllib.request, urllib.error, urllib.parse, os, subprocess, tempfile
 from pathlib import Path
 
 PROJECT='https://vtsqazxhszbmwiswthgt.supabase.co'
 
 def main(path):
+    # CLI and browser uploads use one ticket/richness implementation, including
+    # prepared PBIX files that still contain the historical report grain.
+    with tempfile.TemporaryDirectory(prefix='cow-import-') as temporary:
+        subprocess.run([os.environ.get('CODEX_PRIMARY_RUNTIME_NODE','node'),str(Path(__file__).with_name('prepare_import.mjs')),str(Path(path).resolve()),temporary],check=True)
+        with gzip.open(Path(temporary)/'performance-data.json.gz','rt',encoding='utf-8') as file:dataset=json.load(file)
     key=getpass.getpass('Publishable / anon API key: ').strip()
     valid=key.startswith('sb_publishable_')
     if not valid:
@@ -30,8 +35,6 @@ def main(path):
     auth=request('/auth/v1/token?grant_type=password','POST',{'email':email,'password':password});password=None;token=auth['access_token']
     members=request('/rest/v1/performance_members?select=role,active&user_id=eq.'+auth['user']['id'])
     if not members or not members[0]['active'] or members[0]['role'] not in ('admin','analyst'):raise SystemExit('The account needs an active performance admin or analyst role.')
-    p=Path(path)
-    with (gzip.open(p,'rt',encoding='utf-8') if p.suffix=='.gz' else p.open(encoding='utf-8')) as file: dataset=json.load(file)
     records=dataset['records'];meta=dataset['meta']
     if not records: raise SystemExit('No records to import.')
     if len({r['id'] for r in records})!=len(records):raise SystemExit('Duplicate IDs in import. Run the extraction script first.')

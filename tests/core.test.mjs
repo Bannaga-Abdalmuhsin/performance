@@ -30,22 +30,38 @@ test('CSV parses multiline fields and escaped quotes, while export neutralizes s
  assert.ok(exportCSV([{repair_details:'=HYPERLINK("example")'}],['repair_details']).includes("'=HYPERLINK"));
  assert.throws(()=>parseCSV('a,a\n1,2'),/duplicate/);assert.throws(()=>parseCSV('a,b\n"x,y'),/unclosed/);
 });
-test('imports normalize region and source columns, retain the first row at the Power Query grain, and reject undated rows',()=>{
+test('imports normalize source columns, keep the richest row per ticket, and quarantine undated rows',()=>{
  const rows=[{'Ticket Number':'PR1',SiteID:'COW001','Create Date':'01/08/2026',Region:'CENTRAL','RestorationTime HHMMSS':0,'Exceed SLA':'No'},
  {'Ticket Number':'PR1',SiteID:'COW001','Create Date':'01/08/2026',Region:'Central','RestorationTime HHMMSS':0,'Exceed SLA':'No',RepairDetails:'Complete record'},
  {'Ticket Number':'PR2',SiteID:'COW002','Create Date':'bad'},
  {'ticket_number':'PR3','site_id':'COW003','created_date':'2026-08-31','duration_minutes':-1}];
- const result=normalizeRecords(rows);assert.equal(result.records.length,2);assert.equal(result.duplicates,1);assert.equal(result.rejected.length,1);assert.equal(result.records[0].region,'Central');assert.equal(result.records[0].id,'pbi:PR1COW001');assert.equal(result.records[0].duration_minutes,0);assert.equal(result.records[0].repair_details,null);assert.equal(result.records[1].duration_minutes,null);assert.ok(result.records[1].quality_flags.length);
+ const result=normalizeRecords(rows);assert.equal(result.records.length,2);assert.equal(result.duplicates,1);assert.equal(result.rejected.length,1);assert.equal(result.records[0].region,'Central');assert.equal(result.records[0].id,'pbi:PR1');assert.equal(result.records[0].duration_minutes,0);assert.equal(result.records[0].repair_details,'Complete record');assert.equal(result.records[1].duration_minutes,null);assert.ok(result.records[1].quality_flags.length);assert.equal(result.rejected[0].source_data['Ticket Number'],'PR2');
 });
 test('site and regional groups reconcile additive record-based measures',()=>{
  const rows=[r(1),r(2,{region:'East',site_id:'COW002',duration_minutes:90})],groups=groupBy(rows,'region');assert.equal(groups.reduce((s,g)=>s+g.durationMinutes,0),summarize(rows).durationMinutes);assert.equal(groups.reduce((s,g)=>s+g.tickets,0),2);
 });
-test('Power Query grain preserves severity/district variants and prepared model anomalies',()=>{
+test('ticket-only deduplication handles site/severity/district changes and ignores legacy variant keys',()=>{
  const base={'Ticket Number':'PR9',SiteID:'COW9','Create Date':'31/08/2026',Severity:'High',District:'Riyadh'};
  const result=normalizeRecords([base,{...base,Severity:'Critical'},{...base,District:'Dammam'},{...base,source_key:'retained-model-variant'}]);
- assert.equal(result.records.length,4);assert.equal(new Set(result.records.map(r=>r.id)).size,4);
+ assert.equal(result.records.length,1);assert.equal(result.duplicates,3);assert.equal(result.records[0].id,'pbi:PR9');assert.equal(result.records[0].severity,'Critical');assert.equal(result.records[0].deduplication.removed.length,3);
 });
 test('source dates have explicit two-digit US and four-digit day-first interpretation',()=>{
- const result=normalizeRecords([{'Ticket Number':'A','Create Date':'8/3/26 4:20'},{'Ticket Number':'B','Create Date':'03/08/2026 04:20:00'},{'Ticket Number':'C','Create Date':'31/02/2026'}]);
+ const result=normalizeRecords([{'Ticket Number':'PR1','Create Date':'8/3/26 4:20'},{'Ticket Number':'PR2','Create Date':'03/08/2026 04:20:00'},{'Ticket Number':'PR3','Create Date':'31/02/2026'}]);
  assert.deepEqual(result.records.map(r=>r.created_date),['2026-08-03','2026-08-03']);assert.equal(result.rejected.length,1);
+});
+test('richness counts zero and false, excludes errors/placeholders/technical keys, and retains a whole original row',()=>{
+ const base={'Ticket Number':' pr0001 ','Create Date':'2026-09-30',SiteID:'COW1',RepairDetails:'short'};
+ const poorer={...base,SiteID:'COW2',RepairDetails:'Much longer description',Notes:'#REF!',Other:'N/A',source_key:'ignored',id:'ignored'};
+ const richer={...base,Count:0,Closed:false,Notes:'filled',RepairDetails:'Rich original'};
+ const out=normalizeRecords([poorer,richer]);assert.equal(out.records.length,1);assert.equal(out.records[0].ticket_number,'PR0001');assert.equal(out.records[0].site_id,'COW1');assert.equal(out.records[0].repair_details,'Rich original');assert.equal(out.records[0].source_data.Count,0);assert.equal(out.records[0].source_data.Closed,false);assert.equal(out.records[0].source_data.Other,undefined);assert.ok(out.records[0].deduplication.kept.populated_fields>out.records[0].deduplication.removed[0].populated_fields);
+});
+test('equal field counts prefer more text and exact ties keep the first source occurrence',()=>{
+ const base={'Ticket Number':'PR2','Create Date':'2026-09-30'};
+ const result=normalizeRecords([{...base,RepairDetails:'old'},{...base,RepairDetails:'Full repair details',source_row:20},{...base,RepairDetails:'Full repair details',source_row:30}]);
+ assert.equal(result.records[0].source_row,20);assert.equal(result.duplicates,2);
+ const invalid=normalizeRecords([{...base,'Ticket Number':'not-a-ticket'}]);assert.equal(invalid.records.length,0);assert.equal(invalid.rejected[0].source_data['Ticket Number'],'not-a-ticket');
+});
+test('UTC source timestamps use the same Riyadh reporting date as PostgreSQL',()=>{
+ const result=normalizeRecords([{ticket_number:'PR3',created_at:'2026-09-30T23:30:00Z',restoration_days:0}]);
+ assert.equal(result.records[0].created_date,'2026-10-01');assert.equal(result.records[0].duration_minutes,0);
 });
