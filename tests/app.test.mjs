@@ -24,7 +24,7 @@ test('startup without credentials shows only sign-in and no invented operational
 test('all application views render after approved sign-in and escape source text',async()=>{
  for(const [selector,value]of [['#project-url','https://example.supabase.co'],['#project-key','sb_publishable_test'],['#db-email','test@example.com'],['#db-password','test-password']])document.querySelector(selector).value=value;
  const form=new Element();form.id='connection-form';for(const listener of events.submit)await listener({preventDefault(){},target:form});assert.equal(elements.get('#dashboard-shell').hidden,false);
- for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','formulas','causes','sites','tickets','review','settings']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(html.length>500,view);assert.ok(!html.includes('NaN'),view);assert.ok(!html.includes('<img src=x'),view);assert.ok(!html.includes('undefined'),view);}
+ for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets','review','settings']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(html.length>500,view);assert.ok(!html.includes('NaN'),view);assert.ok(!html.includes('<img src=x'),view);assert.ok(!html.includes('undefined'),view);}
 });
 test('site drill-down restricts the ticket register to the selected COW',async()=>{
  app.navigate('sites');const button=new Element();button.dataset={site:'COW002'};button.id='';const event={target:{closest:selector=>selector==='button,a'?button:null}};for(const listener of events.click)await listener(event);

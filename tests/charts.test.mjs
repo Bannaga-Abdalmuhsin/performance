@@ -50,7 +50,7 @@ test('source labels and tooltips are escaped, categories drill down, and charts 
  const report=buildReport([r('x','2026-08-24',{root_cause:'<script>"& injection'})],state,{...profiles,'weekly-sa':{...profiles['weekly-sa'],visuals:{}}},meta,'weekly-sa');
  const svg=comboSvg(comparisonData(report,'root_cause'));
  assert.ok(svg.includes('data-cause="&lt;script&gt;&quot;&amp; injection"'));assert.ok(!svg.includes('<script>'));
- const html=renderChartBoard(report,state,meta);assert.ok(html.includes('data-action="chart-download"'));assert.ok(html.includes('data-action="chart-expand"'));assert.ok(html.includes('View chart data'));
+ const html=renderChartBoard(report,state,meta);assert.ok(html.includes('data-action="chart-download"'));assert.ok(html.includes('data-action="chart-expand"'));assert.ok(!html.includes('View chart data'));
 });
 test('exported charts include a white background, title and period/line legends',()=>{
  const report=buildReport(rows,state,profiles,meta,'weekly-sa'),svg=comboSvg(comparisonData(report,'root_cause'));

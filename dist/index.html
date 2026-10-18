@@ -5,15 +5,15 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018logos">
-  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018login"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018clean">
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018clean"></script>
 </head>
 <body>
 <main id="login-screen" class="auth-screen" aria-labelledby="login-title">
   <div class="auth-layout">
     <section class="auth-intro">
       <div class="brand"><img class="stc-logo" src="assets/stc-logo.png" width="1552" height="752" alt="stc"><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></div>
-      <div class="auth-welcome"><div class="eyebrow">PERFORMANCE REVIEW · USE CASE 04</div><h1 id="login-title">COW performance,<br>in focus.</h1><p>Your workspace for service performance, operational insights and monthly reviews.</p><div class="auth-features"><span><span data-icon="activity"></span>Weekly & monthly analysis</span><span><span data-icon="layers"></span>Year-on-year comparisons</span><span><span data-icon="check"></span>One validated data source</span></div></div>
+      <div class="auth-welcome"><div class="eyebrow">PERFORMANCE REVIEW</div><h1 id="login-title">COW performance,<br>in focus.</h1><p>Your workspace for service performance, operational insights and monthly reviews.</p><div class="auth-features"><span><span data-icon="activity"></span>Weekly & monthly analysis</span><span><span data-icon="layers"></span>Year-on-year comparisons</span><span><span data-icon="check"></span>One validated data source</span></div></div>
       <div class="powered"><span>Powered by</span><img class="aces-logo" src="assets/aces-managed-services-logo.png" width="1024" height="1024" alt="ACES Managed Services"></div>
     </section>
     <section class="auth-access" aria-label="Performance account sign-in">
@@ -28,7 +28,6 @@
 <a href="#main" class="skip">Skip to performance analysis</a>
 <aside class="sidebar" id="sidebar">
   <a class="brand" href="#overview" aria-label="stc COW performance home"><img class="stc-logo" src="assets/stc-logo.png" width="1552" height="752" alt="stc"><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></a>
-  <div class="workspace"><span class="workspace-icon" data-icon="activity"></span><div>Performance analysis<small>USE CASE 04</small></div></div>
   <div class="nav-label">WORKSPACE</div>
   <nav aria-label="Main navigation">
     <button class="nav-item" data-view="weekly-sa"><span data-icon="activity"></span>Weekly Overview (SA)</button>
@@ -41,7 +40,6 @@
     <button class="nav-item" data-view="causes"><span data-icon="layers"></span>Root cause analysis</button>
     <button class="nav-item" data-view="sites"><span data-icon="tower"></span>Site performance</button>
     <button class="nav-item" data-view="tickets"><span data-icon="ticket"></span>Ticket register<span class="nav-count" id="nav-count">—</span></button>
-    <button class="nav-item" data-view="formulas"><span data-icon="info"></span>Formulas & criteria</button>
     <button class="nav-item" data-view="review"><span data-icon="note"></span>Monthly review</button>
   </nav>
   <div class="sidebar-bottom">
@@ -53,8 +51,8 @@
 <div class="app-shell">
   <header class="topbar"><div class="breadcrumbs"><button class="icon-button mobile-only" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">COW PERFORMANCE</span><button class="account" id="account-button" title="Database connection"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
   <main id="main" tabindex="-1">
-    <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button secondary" id="export-csv"><span data-icon="download"></span>Export data</button><button class="button primary" id="print-review"><span data-icon="file"></span>Review PDF</button></div></div>
-    <div class="source-notice" id="source-notice" role="status"><span class="spinner"></span>Reading performance data…</div>
+    <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button primary" id="print-review"><span data-icon="file"></span>Review PDF</button></div></div>
+    <div class="source-notice" id="source-notice" role="status" hidden><span class="spinner"></span>Reading performance data…</div>
     <section class="filters" aria-label="Performance filters">
       <label class="filter-field period-field" id="period-field"><span data-icon="calendar"></span><span class="filter-label"><span id="period-label">Review month</span><input id="period-filter" type="month" aria-label="Review month"></span></label>
       <label class="filter-field" id="year-field" hidden><span class="filter-label">Review year<select id="year-filter" aria-label="Review year"></select></span></label>
@@ -72,23 +70,12 @@
       <label>Root cause<select id="cause-filter"><option value="all">All causes</option></select></label>
       <button class="button secondary" id="reset-filters">Reset filters</button>
     </section>
-    <div class="scope-caption"><span id="scope-description">Primary outage tickets with the monthly report’s root cause exclusions.</span><button class="text-button" id="method-button">Calculation notes<span data-icon="info"></span></button></div>
+    <div class="scope-caption"><span id="scope-description">Primary outage tickets with the monthly report’s root cause exclusions.</span></div>
     <div id="content" aria-live="polite"><div class="loading-card"><span class="spinner"></span><p>Preparing your monthly overview</p></div></div>
     <footer class="page-footer"><span>stc COW Operations · Performance analysis</span><span id="footer-source"></span><span class="footer-brand"><span>Powered by</span><img class="aces-logo" src="assets/aces-managed-services-logo.png" width="1024" height="1024" alt="ACES Managed Services"></span></footer>
   </main>
 </div>
 <dialog id="detail-dialog" class="detail-dialog"><div class="dialog-header"><span class="eyebrow">TICKET DETAILS</span><button class="icon-button close-dialog" aria-label="Close ticket details" data-icon="close"></button></div><div id="detail-content"></div></dialog>
-<dialog id="method-dialog" class="method-dialog"><div class="dialog-header"><h2>Calculation notes</h2><button class="icon-button close-dialog" aria-label="Close calculation notes" data-icon="close"></button></div><div class="prose">
-  <h3>Verified Power BI criteria</h3><p>All five original pages were inspected. The semantic model yielded 123 DAX measures, 88 calculated columns (including automatic date columns), 13 calculated tables and two Power Query definitions. Open <button class="text-button" data-go="formulas">Formulas & criteria</button> to inspect every expression and visual query.</p>
-  <p>SA uses Service Impacted = Outage. NSA uses Service Impacted ≠ Outage, including Degraded and blank impacts, exactly as the saved report filters. Every page requires blank Parent TT; SA pages retain their own root cause exclusions. The “All recorded faults” scope removes parent and root cause exclusions within the page’s impact group.</p>
-  <h3>Counts, durations and calendar</h3><p>Ticket volume = COUNTROWS of the filtered fact table. Current imports retain one original row per ticket number. The row with the most populated business fields wins, followed by the most text characters, then the first source occurrence. Zero and false count as data; blank, N/A and spreadsheet error cells do not. Invalid ticket numbers or create dates are preserved separately for review. This requested rule replaces the original Power Query grain of Ticket Number + Severity + SiteID + District. The extracted formula audit preserves the original report definitions.</p>
-  <p>New Duration Dax Min = RestorationTime HHMMSS × 1440. Total hours = sum of those minutes ÷ 60. Mean restoration uses records with a duration. Missing values and recorded zero remain distinct. Duration bands are &lt;2hrs, 02–04hrs, 04–08hrs, 08–24hrs and ≥24hrs (the original label is “&gt;24hrs”).</p>
-  <p>Dates use Create Date in Asia/Riyadh. Weeks use WEEKNUM(Date,1): Sunday starts, and January 1 belongs to week 1. Weekly overviews compare adjacent weeks. Monthly overview compares the selected review month to the previous months. MoM Y compares that month across years; WoW Y compares that week number across years. YoY compares matching year-to-date coverage through the selected review month. Partial months in MoM Y use matching days. Partial coverage is labelled.</p>
-  <h3>Legacy formula findings</h3><p>The saved model contains no calendar relationships. Some DAX measures hard-code August 1–30, mix week 12 ticket volume with week 22 duration, use the entire prior year at January/week 1, or subtract a fixed four tickets. Those exact formulas are preserved in the audit. Live dashboards explicitly filter Create Date, include full selected months, use adjacent periods at year boundaries, and show observed row counts without the unexplained −4. These changes make future uploads comparable.</p>
-  <p>Changes use (current − previous) ÷ previous × 100. New activity against zero displays +100%; both zero displays 0%, following the report’s weekly rule. Periods outside source coverage display no comparison. The original “Outperform SLA %” visual references ticket-change measures; it is not treated as an SLA percentage.</p>
-  <h3>SLA and data refresh</h3><p>Source SLA compliance = non-breached ÷ eligible records. Eligibility requires a recorded Yes/No in Exceed SLA and no explicit SLA exclusion. This is labelled separately from the legacy calculated SLA columns, which have no stored values in this file. Network availability is not calculated without a historical on-air inventory denominator.</p>
-  <p>A connected, approved Supabase account checks for a new completed cumulative snapshot every 30 seconds while this tab is visible. All six dashboards switch together after the row count is verified. Pending or failed uploads keep the previous complete snapshot live. The private Power BI baseline remains a static snapshot until you sign in to the database.</p>
-</div></dialog>
 <dialog id="chart-dialog" class="bi-chart-dialog"><div class="dialog-header"><span class="eyebrow">PERFORMANCE CHART</span><button class="icon-button close-dialog" aria-label="Close expanded chart" data-icon="close"></button></div><div id="chart-dialog-content"></div></dialog>
 <div id="chart-tooltip" class="bi-tooltip" role="tooltip" hidden></div>
 </div>

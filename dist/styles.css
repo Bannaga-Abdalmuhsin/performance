@@ -44,3 +44,7 @@ main.auth-screen{max-width:none;margin:0;min-height:100svh;padding:40px 24px;dis
 .footer-brand .aces-logo{width:120px;height:48px;background:#35105b;border-radius:6px}
 @media(max-width:980px){.sidebar .brand{gap:10px}.sidebar .brand .stc-logo{width:64px}}
 @media(max-width:760px){.auth-intro .brand .stc-logo{width:80px}.auth-intro .powered{display:flex;flex-direction:row;align-items:center;gap:15px;margin-top:25px;padding-top:17px}.auth-intro .powered .aces-logo{width:126px;height:50px}.footer-brand{margin-left:0}.page-footer{align-items:flex-start}}
+
+/* Keep the report navigation close to the brand after removing the workspace label. */
+.sidebar>.nav-label{margin-top:32px}
+.scope-caption[hidden]+#content{margin-top:24px}

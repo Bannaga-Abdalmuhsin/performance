@@ -2,7 +2,7 @@
 
 A private operational review platform for ACES / stc COW performance, with six chart dashboards backed by completed cumulative Supabase snapshots.
 
-The views follow the source Power BI chart families: clustered ticket columns with percentage lines, regional change lines, daily/monthly area trends, ticket-age funnels, change donuts, the weekly SA stacked monthly-duration chart, and horizontal NSA district/duration bars. YoY reuses the same chart language for matched YTD periods. Each chart supports category drill-down, exact data values, SVG download and an expanded view. Saved page and visual criteria continue to drive the chart data.
+The views follow the source Power BI chart families: clustered ticket columns with percentage lines, regional change lines, daily/monthly area trends, ticket-age funnels, change donuts, the weekly SA stacked monthly-duration chart, and horizontal NSA district/duration bars. YoY reuses the same chart language for matched YTD periods. Each chart supports category drill-down, value tooltips, SVG download and an expanded view. The review interface omits formula pages, chart data tables, source ticket accordions, data exports and technical calculation notes. Saved page and visual criteria continue to drive the chart data.
 
 | Dashboard | Comparison | Source criteria |
 |---|---|---|
@@ -25,7 +25,7 @@ Current cumulative imports keep **one original row per ticket number**, as reque
 
 This replaces the original Power Query key of Ticket Number + Severity + SiteID + District. The extracted Power BI audit still records the original formulas and model anomalies. Page filters, restoration calculations and comparison criteria continue to apply to the cleaned dataset.
 
-The saved model has no relationships. Some original formulas also subtract an unexplained four tickets, select an entire prior year at week 1/January, omit August 31, or use week 12 for volume and week 22 for duration. Live comparisons explicitly filter Create Date, use the selected periods with correct year boundaries, include the full selected month, and show observed row counts without the fixed subtraction. The original expressions remain available in **Formulas & criteria**, alongside each difference. Historical Eid filters and frozen slicer dates are audited rather than carried into future periods.
+The saved model has no relationships. Some original formulas also subtract an unexplained four tickets, select an entire prior year at week 1/January, omit August 31, or use week 12 for volume and week 22 for duration. Live comparisons explicitly filter Create Date, use the selected periods with correct year boundaries, include the full selected month, and show observed row counts without the fixed subtraction. The original expressions and documented differences remain in the retained source audit for internal reference. Historical Eid filters and frozen slicer dates are audited rather than carried into future periods.
 
 Weeks implement DAX `WEEKNUM(Date,1)`: Sunday starts, January 1 belongs to week 1, and weeks at year boundaries may be short. MoM Y aligns days when the uploaded month is partial; YoY aligns YTD cutoff dates, including leap-year boundaries. Other partial periods are labelled. Outside-coverage periods have no comparison. Change is `(current - previous) / previous * 100`; a positive current against zero shows +100%, both zero shows 0%, following the report's weekly rule.
 
