@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth} from './core.mjs?v=20261018report';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup} from './core.mjs?v=20261018weeks';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -56,8 +56,11 @@ function matchedYearRange(year,monthDay){
   const [m,d]=monthDay.split('-').map(Number),last=new Date(Date.UTC(year,m,0)).getUTCDate();
   return {start:year+'-01-01',end:`${year}-${String(m).padStart(2,'0')}-${String(Math.min(d,last)).padStart(2,'0')}`,year,label:String(year)};
 }
+export function allWeeksSelected(id,state){return state.week==='all'&&['week','week-year'].includes(REPORTS[id]?.mode);}
+export function fullYearRange(year){return {start:year+'-01-01',end:year+'-12-31',year,label:`${year} · All weeks`};}
 export function reportPeriods(id,state,meta){
   const mode=REPORTS[id]?.mode||'month',year=Number(state.year||state.period.slice(0,4)),week=Number(state.week||1);
+  if(allWeeksSelected(id,state))return [0,1,2].map(n=>fullYearRange(year-n));
   if(mode==='week')return [weekRange(year,week),shiftWeek(year,week,-1),shiftWeek(year,week,-2)];
   if(mode==='week-year')return [0,1,2].map(n=>weekRange(year-n,week));
   if(mode==='month-year')return [0,1,2].map(n=>monthRange((year-n)+state.period.slice(4)));
@@ -80,12 +83,12 @@ export function buildReport(records,state,profiles,meta,id=state.view){
     return {range,...coverage,rows,summary:coverage.covered?summarize(rows):null};
   });
   const [now,prev]=series;
-  return {id,definition:REPORTS[id],profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
+  return {id,definition:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:REPORTS[id],profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }
 export function comparisonGroups(report,field){
-  const key=r=>field==='duration_bucket'?durationBucket(r.duration_minutes):r[field]||'Unknown';
+  const key=r=>field==='duration_bucket'?durationBucket(r.duration_minutes):field==='vendor'?vendorGroup(r[field]):r[field]||'Unknown';
   const maps=report.series.map(s=>{const m=new Map();for(const r of s.rows){const name=key(r);if(!m.has(name))m.set(name,[]);m.get(name).push(r);}return m;});
   const names=new Set(maps.flatMap(m=>[...m.keys()]));
   const result=[...names].map(name=>({name,series:maps.map((m,i)=>report.series[i].covered?summarize(m.get(name)||[]):null)}));

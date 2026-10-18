@@ -59,3 +59,14 @@ test('zero-baseline and unavailable-period comparisons are explicit',()=>{
  assert.equal(change(2,0),100);assert.equal(change(0,0),0);assert.equal(change(0,2),-100);assert.equal(change(null,2),null);
  const report=buildReport([r('a','2024-01-01')],{...state,period:'2024-01',year:2024,week:1},profiles,meta,'overview');assert.equal(report.prev.summary,null);assert.equal(report.ticketChange,null);
 });
+test('All weeks covers full calendar years across every weekly analysis and keeps filters',()=>{
+ const source=[r('a','2026-01-01',{vendor:'NSN'}),r('b','2026-08-31',{vendor:'Nokia'}),r('c','2025-12-31',{vendor:'Cisco'}),r('d','2024-02-29',{vendor:'Specialized'}),r('nsa','2026-07-01',{vendor:'NSN',service_impact:'No impact'})];
+ for(const id of ['weekly-sa','weekly-nsa','wow-y']){
+  const report=buildReport(source,{...state,week:'all'},profiles,meta,id);
+  assert.deepEqual(report.series.map(s=>[s.range.start,s.range.end]),[['2026-01-01','2026-12-31'],['2025-01-01','2025-12-31'],['2024-01-01','2024-12-31']]);
+  assert.equal(report.definition.mode,'year');assert.equal(report.definition.fullYear,true);assert.equal(report.now.partial,true);
+  assert.equal(report.now.summary.tickets,id==='weekly-nsa'?1:2);
+ }
+ const others=buildReport(source,{...state,week:'all',vendor:'Others'},profiles,meta,'weekly-sa');assert.deepEqual(others.series.map(s=>s.summary.tickets),[1,1,1]);
+ const monthly=buildReport(source,{...state,week:'all'},profiles,meta,'overview');assert.equal(monthly.now.range.start,'2026-08-01');assert.equal(monthly.now.summary.tickets,1);
+});

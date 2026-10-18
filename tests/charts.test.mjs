@@ -57,3 +57,11 @@ test('exported charts include a white background, title and period/line legends'
  const exported=createChartExport(svg,'Root causes <&>',[{name:'W35 · 2026',color:'#4f008c'},{name:'Ticket change',color:'#00a39b',line:true}]);
  assert.ok(exported.includes('fill="white"'));assert.ok(exported.includes('Root causes &lt;&amp;&gt;'));assert.ok(exported.includes('W35 · 2026'));assert.ok(exported.includes('Ticket change'));assert.ok(exported.includes('<svg x="0" y="'));
 });
+test('all-week charts use twelve months and render main chart titles without subtitles',()=>{
+ for(const id of Object.keys(CHART_PLANS)){
+  const selection={...state,week:'all'},report=buildReport(rows,selection,profiles,meta,id),html=renderChartBoard(report,selection,meta);
+  assert.ok(!/class="panel-title"><div><h2>[^]*?<\/h2><p>/.test(html),id);
+  assert.ok(!html.includes('Monthly restoration hours across years'));assert.ok(!html.includes('Clustered ticket columns'));assert.ok(!/NaN|undefined/.test(html));
+  if(['weekly-sa','weekly-nsa'].includes(id))assert.equal(areaData(report,selection,meta).labels.length,12);
+ }
+});

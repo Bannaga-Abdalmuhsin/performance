@@ -29,6 +29,10 @@ test('unavailable periods, partial NSA coverage and a zero comparison baseline a
  const unavailable=createReviewReport({...options,state:{...state,period:'2023-01',year:2023}});assert.equal(unavailable.report.now.summary,null);assert.match(unavailable.html,/outside the available source date range/);
  const nsa=createReviewReport({...options,state:{...state,view:'weekly-nsa'}});assert.equal(nsa.report.now.partial,true);assert.equal(nsa.report.now.summary.tickets,1);assert.match(nsa.html,/zero comparison baseline/);assert.ok(!nsa.html.includes('increased by 100.0%'));
 });
+test('full-year PDF captures All weeks, grouped vendor scope and prior calendar years',()=>{
+ const source=[row('a','2026-01-01',{vendor:'NSN'}),row('b','2026-08-31',{vendor:'Cisco'}),row('c','2026-08-31',{vendor:'Huawei'}),row('d','2025-12-31',{vendor:'Uncategorized'})],selected={...state,view:'weekly-sa',week:'all',vendor:'Others'};
+ const result=createReviewReport({...options,records:source,state:selected});assert.equal(result.report.now.summary.tickets,2);assert.equal(result.report.prev.summary.tickets,1);assert.equal(result.report.now.range.end,'2026-12-31');assert.match(result.html,/2026 · All weeks/);assert.match(result.html,/Vendor: Others/);assert.ok(!result.html.includes('Day 1 is the first date'));assert.ok(!/NaN|undefined/.test(result.html));
+});
 test('source labels and saved notes are escaped; long notes paginate without truncation',()=>{
  const note='<script>alert(1)</script>\n'+'A long review line repeated for pagination.\n'.repeat(95),result=createReviewReport({...options,records:[row('unsafe','2026-08-31',{root_cause:'<img src=x onerror=alert(1)>'})],notes:{commentary:note,actions:'Final action <&>'}});
  assert.ok(result.pageCount>7);assert.ok(!result.html.includes('<script>'));assert.ok(!result.html.includes('<img src=x'));assert.match(result.html,/&lt;script&gt;/);assert.match(result.html,/Final action &lt;&amp;&gt;/);assert.ok(result.html.includes('Management commentary (continued)'));

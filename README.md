@@ -89,3 +89,5 @@ The original source extraction was reconciled across 870 historical weekly/month
 The public repository contains a formula-audit placeholder. The full extracted audit and operational source snapshot are available only in the owner-private hosted Site.
 
 Weekly NSA opens the latest week containing an eligible NSA record, independently of the overall SA upload cutoff. The subtitle shows the latest NSA record date. Explicitly selected periods remain selected; **Latest available week** returns to the newest available week and follows future completed uploads.
+
+**Review week:** All weeks (full year) selects January 1 through December 31 of the review year in weekly SA, weekly NSA and WoW Y. Comparisons use the two prior full calendar years; current partial source coverage remains labelled. Changing the year preserves All weeks. PDF exports use the same annual selection. Vendor filters contain Nokia, Ericsson, Huawei and Others; every other label, including NSN and missing values, belongs to Others. Source database values remain intact. Chart cards display their main titles without subtitles, and the sidebar source status is hidden while automatic refresh continues.

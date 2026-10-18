@@ -1,5 +1,5 @@
-import {num} from './core.mjs?v=20261018report';
-import {renderChartBoard} from './charts.mjs?v=20261018report';
+import {num} from './core.mjs?v=20261018weeks';
+import {renderChartBoard} from './charts.mjs?v=20261018weeks';
 const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const n=(v,d=0)=>num(v)?v.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
 const hrs=v=>num(v)?n(v/60,1):'—';

@@ -7,6 +7,8 @@ export function rowRichness(row) {
   const values=Object.entries(row).filter(([k])=>!technicalFields.has(k)).map(([,v])=>v).filter(v=>v!==null&&v!==undefined&&typeof v!=='object'&&!cellError.test(String(v))&&!['','na','n/a','null','none','nan','-'].includes(String(v).trim().toLowerCase()));
   return {populated_fields:values.length,text_characters:values.reduce((n,v)=>n+(typeof v==='string'?[...v.trim()].length:0),0)};
 }
+export const VENDOR_GROUPS=['Nokia','Ericsson','Huawei','Others'];
+export function vendorGroup(value){return VENDOR_GROUPS.find(name=>name.toLowerCase()===String(value??'').trim().toLowerCase())||'Others';}
 export const num = (v) => typeof v === 'number' && Number.isFinite(v);
 export const sum = (xs) => xs.reduce((a,b)=>a+(num(b)?b:0),0);
 export const monthOf = (r) => r.created_date?.slice(0,7);
@@ -15,7 +17,7 @@ export function percentageChange(current, previous) { return !num(current)||!num
 export function scopeFilter(records, filters={}, profile={}) {
   return records.filter(r=>{
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
-      if(filters[field] && filters[field]!=='all' && r[field]!==filters[field]) return false;
+      if(filters[field] && filters[field]!=='all' && (field==='vendor'?vendorGroup(r[field])!==vendorGroup(filters[field]):r[field]!==filters[field])) return false;
     }
     if(filters.period && monthOf(r)!==filters.period) return false;
     if(filters.duration_bucket && filters.duration_bucket!=='all'){const v=r.duration_minutes,b=!num(v)?'Missing':v>=1440?'>24hrs':v>=480?'08-24hrs':v>=240?'04-08hrs':v>=120?'02-04hrs':'<2hrs';if(b!==filters.duration_bucket)return false;}
@@ -48,7 +50,7 @@ export function summarize(records) {
 }
 export function groupBy(records, field) {
   const groups=new Map();
-  for(const r of records) { const key=r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
+  for(const r of records) { const key=field==='vendor'?vendorGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
   return [...groups].map(([name,rows])=>({name,...summarize(rows),rows})).sort((a,b)=>b.tickets-a.tickets||a.name.localeCompare(b.name));
 }
 export function monthlyTrend(records, period, meta, count=12) {

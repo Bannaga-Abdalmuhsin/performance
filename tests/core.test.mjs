@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {scopeFilter,summarize,percentageChange,previousMonth,monthlyTrend,normalizeRecords,parseCSV,exportCSV,groupBy} from '../dist/core.mjs';
+import {scopeFilter,summarize,percentageChange,previousMonth,monthlyTrend,normalizeRecords,parseCSV,exportCSV,groupBy,vendorGroup} from '../dist/core.mjs';
 const r=(n,extra={})=>({id:'TT'+n+'|COW001',ticket_number:'TT'+n,site_id:'COW001',created_date:'2026-08-15',created_at:'2026-08-15T12:00:00+03:00',region:'Central',root_cause:'Generator Issue',service_impact:'Outage',duration_minutes:60,sla_breached:false,sla_excluded:false,parent_tt:null,quality_flags:[],...extra});
+test('vendor groups cover every record and Others combines all remaining labels',()=>{
+ const labels=['Nokia',' ERICSSON ','huawei','NSN','Specialized','Cisco','Uncategorized',null,'WORK MICROWAVE'],rows=labels.map((vendor,i)=>r(i,{vendor}));
+ assert.deepEqual(labels.map(vendorGroup),['Nokia','Ericsson','Huawei','Others','Others','Others','Others','Others','Others']);
+ assert.equal(scopeFilter(rows,{vendor:'Others'}).length,6);assert.equal(scopeFilter(rows,{vendor:'Ericsson'}).length,1);
+ const groups=groupBy(rows,'vendor');assert.equal(groups.length,4);assert.equal(groups.reduce((sum,g)=>sum+g.tickets,0),rows.length);assert.equal(groups.find(g=>g.name==='Others').tickets,6);assert.equal(rows[3].vendor,'NSN');
+});
 test('analysis includes parent and all root causes with explicit impact selection',()=>{
  const rows=[r(1),r(2,{parent_tt:'TT1'}),r(3,{root_cause:'  TELECOM '}),r(4,{service_impact:'No impact'})];
  assert.deepEqual(scopeFilter(rows,{scope:'powerbi',service_impact:'Outage'},{excluded_root_causes:['Telecom']}).map(x=>x.id),rows.slice(0,3).map(x=>x.id));
