@@ -4,7 +4,7 @@ import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261018labels';
 import {renderReport} from './report.mjs?v=20261018labels';
 import {createChartExport} from './charts.mjs?v=20261018labels';
-import {printAnalysisReport} from './pdf-report.mjs?v=20261018labels';
+import {printAnalysisReport} from './pdf-report.mjs?v=20261018executive';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -149,9 +149,9 @@ function showDetail(id){const r=recordsById.get(id);if(!r)return;const fields=[[
 function download(text,name,type='text/csv;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function printReview(){
   if(!data||state.view==='settings'||$('#print-review').disabled)return;
-  persistDraft();const button=$('#print-review'),selection={...state},dataset=data,key=reviewKey();let notes=localReview();
-  button.disabled=true;toast('Preparing your selected performance report…');
-  try{if(source==='database'&&db){try{const shared=await db.getReview(key);if(shared&&(!notes.updated_at||new Date(shared.updated_at)>new Date(notes.updated_at)))notes=shared;}catch{}}await printAnalysisReport({records:dataset.records,state:selection,meta:dataset.meta,profiles,notes});toast('Report ready. Choose Save as PDF in the print dialog.');}
+  persistDraft();const button=$('#print-review'),selection={...state},dataset=data;
+  button.disabled=true;toast('Preparing your executive summary…');
+  try{await printAnalysisReport({records:dataset.records,state:selection,meta:dataset.meta,profiles});toast('Report ready. Choose Save as PDF in the print dialog.');}
   catch(error){toast(error.message);}
   finally{button.disabled=false;}
 }

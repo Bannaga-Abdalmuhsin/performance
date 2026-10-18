@@ -16,7 +16,7 @@ test('each report exports its selected period, impact group and truthful compari
  for(const id of Object.keys(REPORTS)){
   const result=createReviewReport({...options,state:{...state,view:id,reportView:id}}),expected=buildReport(records,state,{},meta,id);
   assert.equal(result.report.now.summary?.tickets,expected.now.summary?.tickets,id);assert.equal(result.report.now.summary?.durationMinutes,expected.now.summary?.durationMinutes,id);assert.equal(result.report.definition.title,REPORTS[id].title);
-  assert.equal(result.pageCount,5);assert.match(result.html,/Executive assessment/);assert.match(result.html,/Recommended follow-up/);assert.match(result.html,/stc-logo\.png/);assert.match(result.html,/aces-managed-services-logo\.png/);assert.ok(result.html.includes(REPORTS[id].title));assert.ok(!/Power\s?BI|NaN|undefined|Infinity/.test(result.html),id);
+  assert.equal(result.pageCount,1);assert.match(result.html,/Key findings/);assert.match(result.html,/Management focus/);assert.match(result.html,/stc-logo\.png/);assert.match(result.html,/aces-managed-services-logo\.png/);assert.ok(result.html.includes(REPORTS[id].title));assert.ok(!/Power\s?BI|NaN|undefined|Infinity/.test(result.html),id);
  }
 });
 test('PDF scope captures operational filters and ticket search without changing the dashboard state',()=>{
@@ -33,14 +33,16 @@ test('full-year PDF captures All weeks, grouped vendor scope and prior calendar 
  const source=[row('a','2026-01-01',{vendor:'NSN'}),row('b','2026-08-31',{vendor:'Cisco'}),row('c','2026-08-31',{vendor:'Huawei'}),row('d','2025-12-31',{vendor:'Uncategorized'})],selected={...state,view:'weekly-sa',week:'all',vendor:'Others'};
  const result=createReviewReport({...options,records:source,state:selected});assert.equal(result.report.now.summary.tickets,2);assert.equal(result.report.prev.summary.tickets,1);assert.equal(result.report.now.range.end,'2026-12-31');assert.match(result.html,/2026 · All weeks/);assert.match(result.html,/Vendor: Others/);assert.ok(!result.html.includes('Day 1 is the first date'));assert.ok(!/NaN|undefined/.test(result.html));
 });
-test('source labels and saved notes are escaped; long notes paginate without truncation',()=>{
- const note='<script>alert(1)</script>\n'+'A long review line repeated for pagination.\n'.repeat(95),result=createReviewReport({...options,records:[row('unsafe','2026-08-31',{root_cause:'<img src=x onerror=alert(1)>'})],notes:{commentary:note,actions:'Final action <&>'}});
- assert.ok(result.pageCount>7);assert.ok(!result.html.includes('<script>'));assert.ok(!result.html.includes('<img src=x'));assert.match(result.html,/&lt;script&gt;/);assert.match(result.html,/Final action &lt;&amp;&gt;/);assert.ok(result.html.includes('Management commentary (continued)'));
+test('executive export stays one page, escapes source labels and omits detailed records and notes',()=>{
+ const result=createReviewReport({...options,records:[row('PR-private-ticket','2026-08-31',{root_cause:'<img src=x onerror=alert(1)>',site_id:'PRIVATE-SITE-ID'})],notes:{commentary:'PRIVATE_REVIEW_NOTE\n'.repeat(150),actions:'PRIVATE_ACTION'}});
+ assert.equal(result.pageCount,1);assert.equal((result.html.match(/<section class="report-page"/g)||[]).length,1);
+ assert.ok(!result.html.includes('<img src=x'));assert.match(result.html,/&lt;img src=x/);
+ for(const excluded of ['PRIVATE_REVIEW_NOTE','PRIVATE_ACTION','PR-private-ticket','PRIVATE-SITE-ID','Leading COW sites','Record completeness','Restoration duration distribution','Regional contribution','Management commentary'])assert.ok(!result.html.includes(excluded),excluded);
 });
 test('export prepares a separate report document and invokes its native PDF dialog',async()=>{
  let frame,printed=false,removed=false;const saved={document:globalThis.document,requestAnimationFrame:globalThis.requestAnimationFrame};
  try{
   globalThis.requestAnimationFrame=fn=>fn();globalThis.document={baseURI:'https://example.com/performance/dist/',createElement(tag){assert.equal(tag,'iframe');frame={style:{},setAttribute(){},remove(){removed=true;},contentDocument:{images:[],fonts:{ready:Promise.resolve()}},contentWindow:{addEventListener(){},focus(){},print(){printed=true;}}};return frame;},body:{append(el){queueMicrotask(()=>el.onload());}}};
-  const filename=await printAnalysisReport(options);assert.ok(printed);assert.match(filename,/stc-COW-overview/);assert.match(frame.srcdoc,/Executive assessment/);assert.equal(removed,false);
+  const filename=await printAnalysisReport(options);assert.ok(printed);assert.match(filename,/stc-COW-overview/);assert.match(frame.srcdoc,/Key findings/);assert.equal(removed,false);
  }finally{globalThis.document=saved.document;globalThis.requestAnimationFrame=saved.requestAnimationFrame;}
 });
