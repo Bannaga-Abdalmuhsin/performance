@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {scopeFilter,summarize,percentageChange,previousMonth,monthlyTrend,normalizeRecords,parseCSV,exportCSV,groupBy} from '../dist/core.mjs';
 const r=(n,extra={})=>({id:'TT'+n+'|COW001',ticket_number:'TT'+n,site_id:'COW001',created_date:'2026-08-15',created_at:'2026-08-15T12:00:00+03:00',region:'Central',root_cause:'Generator Issue',service_impact:'Outage',duration_minutes:60,sla_breached:false,sla_excluded:false,parent_tt:null,quality_flags:[],...extra});
-test('monthly profile applies parent and root-cause exclusions with explicit impact selection',()=>{
+test('analysis includes parent and all root causes with explicit impact selection',()=>{
  const rows=[r(1),r(2,{parent_tt:'TT1'}),r(3,{root_cause:'  TELECOM '}),r(4,{service_impact:'No impact'})];
- assert.deepEqual(scopeFilter(rows,{scope:'powerbi',service_impact:'Outage'},{excluded_root_causes:['Telecom']}).map(x=>x.id),[rows[0].id]);
+ assert.deepEqual(scopeFilter(rows,{scope:'powerbi',service_impact:'Outage'},{excluded_root_causes:['Telecom']}).map(x=>x.id),rows.slice(0,3).map(x=>x.id));
  assert.equal(scopeFilter(rows,{scope:'all',service_impact:'all'}).length,4);
  assert.equal(scopeFilter(rows,{scope:'all',site_id:'COW999'}).length,0);
 });

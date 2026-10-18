@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018nsa">
-  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018nsa"></script>
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018report"></script>
 </head>
 <body>
 <main id="login-screen" class="auth-screen" aria-labelledby="login-title">
@@ -51,7 +51,7 @@
 <div class="app-shell">
   <header class="topbar"><div class="breadcrumbs"><button class="icon-button mobile-only" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">COW PERFORMANCE</span><button class="account" id="account-button" title="User settings"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
   <main id="main" tabindex="-1">
-    <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button primary" id="print-review"><span data-icon="file"></span>Review PDF</button></div></div>
+    <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button primary" id="print-review"><span data-icon="file"></span>Export PDF</button></div></div>
     <div class="source-notice" id="source-notice" role="status" hidden><span class="spinner"></span>Reading performance data…</div>
     <section class="filters" aria-label="Performance filters">
       <label class="filter-field period-field" id="period-field"><span data-icon="calendar"></span><span class="filter-label"><span id="period-label">Review month</span><input id="period-filter" type="month" aria-label="Review month"></span></label>
@@ -60,7 +60,6 @@
       <label class="filter-field"><span class="filter-label">Region<select id="region-filter"><option value="all">All regions</option></select></span></label>
       <label class="filter-field"><span class="filter-label">District<select id="district-filter"><option value="all">All districts</option></select></span></label>
       <label class="filter-field"><span class="filter-label">Service impact<select id="impact-filter"><option value="Outage">Outage (SA)</option><option value="NSA">Not Outage (NSA)</option><option value="No impact">No impact</option><option value="Degraded">Degraded</option><option value="all">All impacts</option></select></span></label>
-      <label class="filter-field scope-field"><span class="filter-label">Analysis scope<select id="scope-filter"><option value="powerbi">Power BI page criteria</option><option value="all">All recorded faults</option></select></span></label>
       <button class="filter-more latest-period" id="latest-period" type="button" hidden><span data-icon="clock"></span><span>Latest available week</span></button>
       <button class="filter-more" id="more-filters" aria-expanded="false"><span data-icon="filter"></span><span>More</span></button>
     </section>
@@ -71,7 +70,7 @@
       <label>Root cause<select id="cause-filter"><option value="all">All causes</option></select></label>
       <button class="button secondary" id="reset-filters">Reset filters</button>
     </section>
-    <div class="scope-caption"><span id="scope-description">Primary outage tickets with the monthly report’s root cause exclusions.</span></div>
+    <div class="scope-caption"><span id="scope-description">All recorded faults within the selected filters.</span></div>
     <div id="content" aria-live="polite"><div class="loading-card"><span class="spinner"></span><p>Preparing your monthly overview</p></div></div>
     <footer class="page-footer"><span>stc COW Operations · Performance analysis</span><span id="footer-source"></span><span class="footer-brand"><span>Powered by</span><img class="aces-logo" src="assets/aces-managed-services-logo.png" width="1024" height="1024" alt="ACES Managed Services"></span></footer>
   </main>

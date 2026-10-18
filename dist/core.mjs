@@ -13,9 +13,7 @@ export const monthOf = (r) => r.created_date?.slice(0,7);
 export const previousMonth = (m, offset=-1) => { const [y,n]=m.split('-').map(Number); return new Date(Date.UTC(y,n-1+offset,1)).toISOString().slice(0,7); };
 export function percentageChange(current, previous) { return !num(current)||!num(previous)||previous===0 ? null : (current-previous)/previous*100; }
 export function scopeFilter(records, filters={}, profile={}) {
-  const excluded=new Set((profile.excluded_root_causes||[]).map(s=>s.trim().toLowerCase()));
   return records.filter(r=>{
-    if(filters.scope==='powerbi' && (r.parent_tt || excluded.has((r.root_cause||'').trim().toLowerCase()))) return false;
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
       if(filters[field] && filters[field]!=='all' && r[field]!==filters[field]) return false;
     }

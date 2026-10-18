@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth} from './core.mjs';
+import {num, sum, summarize, scopeFilter, previousMonth} from './core.mjs?v=20261018report';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -27,19 +27,22 @@ export function monthRange(month){const [y,m]=month.split('-').map(Number);retur
 export function durationBucket(value){return !num(value)?'Missing':value>=1440?'>24hrs':value>=480?'08-24hrs':value>=240?'04-08hrs':value>=120?'02-04hrs':'<2hrs';}
 export const DURATION_BUCKETS=['<2hrs','02-04hrs','04-08hrs','08-24hrs','>24hrs','Missing'];
 export function reportProfile(profiles,id){return profiles[id]||profiles.overview||{};}
+function impactRows(records,id){
+  const impact=REPORTS[id]?.impact||'SA';
+  return records.filter(r=>impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage');
+}
 export function reportScope(records,state,profiles,id=state.reportView||state.view){
-  const profile=reportProfile(profiles,id),impact=profile.impact_mode||REPORTS[id]?.impact||'SA';
-  const rows=scopeFilter(records,{...state,service_impact:undefined,period:undefined,query:undefined},profile);
-  return rows.filter(r=>impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage');
+  return scopeFilter(impactRows(records,id),{...state,service_impact:undefined,period:undefined,query:undefined});
 }
 export function latestReportDate(records,profiles,meta,id){
-  if(REPORTS[id]?.impact!=='NSA')return meta.max_date||null;
-  // NSA uploads may stop before SA. Use eligible NSA records for the default
-  // week without carrying an SA-only cutoff into the NSA overview.
-  return reportScope(records,{scope:'powerbi'},profiles,id).reduce((latest,row)=>row.created_date&&(!latest||row.created_date>latest)?row.created_date:latest,null);
+  return impactRows(records,id).reduce((latest,row)=>row.created_date&&(!latest||row.created_date>latest)?row.created_date:latest,null);
+}
+function impactCoverage(records,id,meta){
+  const dates=impactRows(records,id).map(r=>r.created_date).filter(Boolean).sort();
+  return {min_date:meta.min_date,max_date:REPORTS[id]?.impact==='NSA'?(dates.at(-1)||null):meta.max_date};
 }
 function covered(range,meta){
-  if(!range)return {covered:false,partial:false};
+  if(!range||!meta.min_date||!meta.max_date)return {covered:false,partial:false};
   const yes=range.end>=meta.min_date&&range.start<=meta.max_date;
   return {covered:yes,partial:yes&&(range.start<meta.min_date||range.end>meta.max_date)};
 }
@@ -66,44 +69,28 @@ export function reportPeriods(id,state,meta){
   return [0,-1,-2].map(n=>monthRange(previousMonth(state.period,n)));
 }
 export function buildReport(records,state,profiles,meta,id=state.view){
-  const scope=reportScope(records,state,profiles,id),ranges=reportPeriods(id,state,meta);
+  const sourceCoverage=impactCoverage(records,id,meta),scope=reportScope(records,state,profiles,id),ranges=reportPeriods(id,state,{...meta,max_date:sourceCoverage.max_date||meta.max_date});
   // Month/year views compare like-for-like days when the uploaded month is partial.
-  if(REPORTS[id]?.mode==='month-year'&&ranges[0].start<=meta.max_date&&ranges[0].end>meta.max_date){
-    const day=Number(meta.max_date.slice(8));
+  if(REPORTS[id]?.mode==='month-year'&&sourceCoverage.max_date&&ranges[0].start<=sourceCoverage.max_date&&ranges[0].end>sourceCoverage.max_date){
+    const day=Number(sourceCoverage.max_date.slice(8));
     ranges.forEach(r=>r.end=r.end.slice(0,8)+String(Math.min(day,Number(r.end.slice(8)))).padStart(2,'0'));
   }
   const series=ranges.map(range=>{
-    const coverage=covered(range,meta),rows=coverage.covered?inRange(scope,range):[];
+    const coverage=covered(range,sourceCoverage),rows=coverage.covered?inRange(scope,range):[];
     return {range,...coverage,rows,summary:coverage.covered?summarize(rows):null};
   });
   const [now,prev]=series;
-  return {id,definition:REPORTS[id],profile:reportProfile(profiles,id),scope,series,now,prev,
+  return {id,definition:REPORTS[id],profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }
 export function comparisonGroups(report,field){
   const key=r=>field==='duration_bucket'?durationBucket(r.duration_minutes):r[field]||'Unknown';
-  const visual=report.profile.visuals?.[field];
-  const aliases={'Root Cause Details':'root_cause','District':'district','Site Label':'site_label','Severity':'severity','Duration Criteria':'duration_bucket'};
-  const accepted=r=>(visual?.row_rules||[]).every(rule=>{
-    const f=aliases[rule.field];if(!f)return true;
-    const raw=f==='duration_bucket'?(num(r.duration_minutes)?durationBucket(r.duration_minutes):null):r[f];
-    const value=raw==='Unknown'?null:raw;
-    const normalize=v=>String(v??'').trim().toLowerCase();
-    const match=rule.contains!==undefined?normalize(value).includes(normalize(rule.contains)):(rule.values||[]).some(v=>normalize(v)===normalize(value));
-    return rule.exclude?!match:match;
-  });
-  const maps=report.series.map(s=>{const m=new Map();for(const r of s.rows.filter(accepted)){const name=key(r);if(!m.has(name))m.set(name,[]);m.get(name).push(r);}return m;});
+  const maps=report.series.map(s=>{const m=new Map();for(const r of s.rows){const name=key(r);if(!m.has(name))m.set(name,[]);m.get(name).push(r);}return m;});
   const names=new Set(maps.flatMap(m=>[...m.keys()]));
   const result=[...names].map(name=>({name,series:maps.map((m,i)=>report.series[i].covered?summarize(m.get(name)||[]):null)}));
   for(const g of result){g.ticketChange=change(g.series[0]?.tickets,g.series[1]?.tickets);g.durationChange=change(g.series[0]?.durationMinutes,g.series[1]?.durationMinutes);}
-  let filtered=result.filter(g=>(visual?.group_rules||[]).every(rule=>{
-    const value=g.series[rule.period]?.tickets;if(!num(value))return false;
-    let yes=({0:()=>value===rule.value,1:()=>value>rule.value,2:()=>value>=rule.value,3:()=>value<rule.value,4:()=>value<=rule.value})[rule.kind]?.()??true;
-    return rule.not?!yes:yes;
-  }));
-  if(visual?.top_n){const ranks=new Map();for(const r of report.scope.filter(accepted))ranks.set(key(r),(ranks.get(key(r))||0)+1);const cutoff=[...ranks.values()].sort((a,b)=>b-a)[visual.top_n-1]||0;filtered=filtered.filter(g=>(ranks.get(g.name)||0)>=cutoff);}
-  return field==='duration_bucket'?filtered.sort((a,b)=>DURATION_BUCKETS.indexOf(a.name)-DURATION_BUCKETS.indexOf(b.name)):filtered.sort((a,b)=>(b.series[0]?.tickets||0)-(a.series[0]?.tickets||0)||a.name.localeCompare(b.name));
+  return field==='duration_bucket'?result.sort((a,b)=>DURATION_BUCKETS.indexOf(a.name)-DURATION_BUCKETS.indexOf(b.name)):result.sort((a,b)=>(b.series[0]?.tickets||0)-(a.series[0]?.tickets||0)||a.name.localeCompare(b.name));
 }
 export function reportTrend(report,state,meta){
   const weekly=['week','week-year'].includes(report.definition.mode),year=Number(state.year||state.period.slice(0,4));

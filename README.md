@@ -2,28 +2,24 @@
 
 A private operational review platform for ACES / stc COW performance, with six chart dashboards backed by completed cumulative Supabase snapshots.
 
-The views follow the source Power BI chart families: clustered ticket columns with percentage lines, regional change lines, daily/monthly area trends, ticket-age funnels, change donuts, the weekly SA stacked monthly-duration chart, and horizontal NSA district/duration bars. YoY reuses the same chart language for matched YTD periods. Each chart supports category drill-down, value tooltips, SVG download and an expanded view. The review interface omits formula pages, chart data tables, source ticket accordions, data exports and technical calculation notes. Saved page and visual criteria continue to drive the chart data.
+The six dashboards analyze **all retained records** in the selected SA/NSA impact group, review period and user filters. Historical page criteria, parent-ticket exclusions, root-cause exclusions, category thresholds and top-N visual filters do not affect live analysis. All category totals reconcile with the selected ticket scope. The interface has no source-tool branding, criteria selector, formula pages or data administration controls.
 
-| Dashboard | Comparison | Source criteria |
+| Dashboard | Comparison | Impact scope |
 |---|---|---|
-| Weekly Overview (SA) | Selected Sunday-based week vs previous two weeks | Weekly SA page |
-| Weekly Overview (NSA) | Selected week vs previous two weeks | Weekly NSA page: every impact except Outage |
-| Monthly Overview (SA) | Selected review month vs previous two months | Monthly SA page |
-| MoM Y | Same month across three years | MOM Y page |
-| WoW Y | Same week number across three years | WOW Y page |
-| YoY | Matching YTD coverage through the review month | New page using Monthly SA scope |
+| Weekly Overview (SA) | Selected Sunday-based week vs previous two weeks | Outage |
+| Weekly Overview (NSA) | Selected week vs previous two weeks | Every impact except Outage |
+| Monthly Overview (SA) | Selected review month vs previous two months | Outage |
+| MoM Y | Same month across three years | Outage |
+| WoW Y | Same week number across three years | Outage |
+| YoY | Matching YTD coverage through the review month | Outage |
 
-The original PBIX contains five pages. `dist/formula-audit.json` records every page, visual query, visual filter, all 123 DAX measures, 88 calculated columns (15 business columns and 73 automatic date columns), 13 calculated tables and two Power Query expressions. Source folder paths are redacted. All raw operational rows stay outside the public GitHub repository.
+**Export PDF** prepares a separate, branded A4 performance report for the active analysis and filter selection. Choose **Save as PDF** in the native print dialog. The report includes an executive assessment, exact period/date/filter scope, comparison metrics, root cause and district charts, restoration duration and within-period patterns, regional and operational breakdowns, COW priorities, and existing review notes. Reports use the complete selected scope; explicitly labelled top-eight summaries keep printed charts legible. Long notes paginate onto additional pages. Export does not navigate away from the selected dashboard.
 
-## Criteria and model findings
-
-Volume follows the decoded DAX `0 + COUNTROWS('Outages & power')`. It does not count distinct tickets. Distinct ticket numbers are displayed separately. Restoration minutes equal `RestorationTime HHMMSS * 1440`; hours equal minutes / 60. Missing and zero durations remain distinguishable. Duration bands follow the original thresholds: `<2hrs`, `02-04hrs`, `04-08hrs`, `08-24hrs`, and `>24hrs` (the last band includes exactly 1440 minutes).
-
-Each page keeps its own service-impact, blank Parent TT and root-cause rules. Comparison tables also retain the saved category exclusions, count thresholds and WoW Y top-10 root-cause filter. The top-10 ranks tickets across the loaded source under the page criteria, matching the saved filter. KPI totals and the ticket register retain the complete page scope.
+Restoration hours use recorded minutes divided by 60; means use valid recorded durations. SLA compliance uses recorded outcomes and explicit exemptions. Zero and missing values remain distinct. Sunday-based weeks and matched month/year comparisons retain their calendar rules. NSA source coverage and its default latest week are determined independently of the later SA cutoff.
 
 Current cumulative imports keep **one original row per ticket number**, as requested. Ticket numbers are trimmed, normalized to uppercase and validated as PR/PMR/TT followed by digits. The row with the most populated original business fields wins. Equal field counts prefer more text characters; exact ties retain the first source occurrence. Zero and false are populated; blanks, N/A placeholders and spreadsheet errors are not. Rows are selected whole, never merged. All original business fields are stored in `performance_tickets.source_data`; `deduplication` records retained/removed source row numbers and scores. Invalid ticket numbers/create dates remain in `performance_imports.metadata.quarantined_rows` for review and are excluded from charts.
 
-This replaces the original Power Query key of Ticket Number + Severity + SiteID + District. The extracted Power BI audit still records the original formulas and model anomalies. Page filters, restoration calculations and comparison criteria continue to apply to the cleaned dataset.
+This replaces the original Power Query key of Ticket Number + Severity + SiteID + District. The extracted Power BI audit still records the original formulas and model anomalies. Live analysis applies the selected impact group, period and operational filters to the cleaned dataset. Historical page and visual filters are retained only in source audit files and are not fetched by the application.
 
 The saved model has no relationships. Some original formulas also subtract an unexplained four tickets, select an entire prior year at week 1/January, omit August 31, or use week 12 for volume and week 22 for duration. Live comparisons explicitly filter Create Date, use the selected periods with correct year boundaries, include the full selected month, and show observed row counts without the fixed subtraction. The original expressions and documented differences remain in the retained source audit for internal reference. Historical Eid filters and frozen slicer dates are audited rather than carried into future periods.
 
@@ -84,9 +80,9 @@ npm run check
 npm test
 ```
 
-The project has no JavaScript dependencies or build step. Tests cover all six report modes, period/year/leap boundaries, page and visual criteria, duration bands, zero/missing values, raw CSV normalization, escaping, immutable snapshot selection, import failure/count handling, and all UI renderers in a minimal DOM harness.
+The project has no JavaScript dependencies or build step. Tests cover all six report modes, period/year/leap boundaries, inclusion of all records despite retired page and visual criteria, PDF scope and print-dialog preparation, duration bands, zero/missing values, raw CSV normalization, escaping, immutable snapshot selection, import failure/count handling, and all UI renderers in a minimal DOM harness.
 
-The decoded source was reconciled to the JavaScript engine and PostgreSQL across 870 weekly/monthly page-scope aggregates. Record IDs, dates, duration counts and totals were also checked. Database role tests verified viewer read restrictions, analyst publication, count validation, immutable completed snapshots, server-side duration conversion and Riyadh dates, then rolled back. These are functional/data checks; a full browser layout and live user sign-in session have not been tested in this environment.
+The original source extraction was reconciled across 870 historical weekly/monthly aggregates. Live analysis now includes all retained records within the selected impact, period and filters. Record IDs, dates, duration counts and totals were also checked. Database role tests verified viewer read restrictions, analyst publication, count validation, immutable completed snapshots, server-side duration conversion and Riyadh dates, then rolled back. These are functional/data checks; a full browser layout and live user sign-in session have not been tested in this environment.
 
 `dist/private-snapshot.json.gz` exists only in the owner-private native Site source. It must never be pushed to the public GitHub repository or GitHub Pages. The public `dist/config.js` has `privateSnapshot: null` and the browser publishable key; it never contains a secret or service-role key. Raw files, extracted records, temporary payloads and import containers must remain outside public source control.
 

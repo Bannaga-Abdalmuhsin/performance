@@ -4,11 +4,11 @@ import {readFileSync} from 'node:fs';
 import {weekNumber,weeksInYear,weekRange,shiftWeek,durationBucket,buildReport,comparisonGroups,change,latestReportDate} from '../dist/analysis.mjs';
 const profiles=JSON.parse(readFileSync(new URL('../dist/report-profiles.json',import.meta.url)));
 const r=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',parent_tt:null,root_cause:'Generator Issue',duration_minutes:60,site_id:'COW1',quality_flags:[],...extra});
-const state={period:'2026-08',year:2026,week:36,scope:'powerbi'};
+const state={period:'2026-08',year:2026,week:36,scope:'all'};
 const meta={min_date:'2024-01-01',max_date:'2026-08-31'};
 test('NSA latest week uses eligible NSA records instead of the later SA cutoff',()=>{
- const records=[r('nsa','2026-08-31',{service_impact:'No impact'}),r('degraded','2026-08-30',{service_impact:'Degraded'}),r('child','2026-09-20',{service_impact:'No impact',parent_tt:'PR1'}),r('sa','2026-09-30')],mixedMeta={...meta,max_date:'2026-09-30'};
- const latest=latestReportDate(records,profiles,mixedMeta,'weekly-nsa');assert.equal(latest,'2026-08-31');assert.equal(weekNumber(latest),36);assert.equal(latestReportDate(records,profiles,mixedMeta,'weekly-sa'),'2026-09-30');assert.equal(buildReport(records,{...state,week:weekNumber(latest)},profiles,mixedMeta,'weekly-nsa').now.summary.tickets,2);
+ const records=[r('nsa','2026-08-31',{service_impact:'No impact'}),r('degraded','2026-08-30',{service_impact:'Degraded'}),r('child','2026-08-31',{service_impact:'No impact',parent_tt:'PR1'}),r('sa','2026-09-30')],mixedMeta={...meta,max_date:'2026-09-30'};
+ const latest=latestReportDate(records,profiles,mixedMeta,'weekly-nsa');assert.equal(latest,'2026-08-31');assert.equal(weekNumber(latest),36);assert.equal(latestReportDate(records,profiles,mixedMeta,'weekly-sa'),'2026-09-30');assert.equal(buildReport(records,{...state,week:weekNumber(latest)},profiles,mixedMeta,'weekly-nsa').now.summary.tickets,3);
 });
 test('absence of NSA records never invents an NSA cutoff from SA dates',()=>{
  assert.equal(latestReportDate([r('sa','2026-08-31')],profiles,meta,'weekly-nsa'),null);
@@ -24,10 +24,10 @@ test('all duration band boundaries match the decoded DAX, including zero and mis
  const values=[null,0,119.99,120,239.99,240,479.99,480,1439.99,1440];
  assert.deepEqual(values.map(durationBucket),['Missing','<2hrs','<2hrs','02-04hrs','02-04hrs','04-08hrs','04-08hrs','08-24hrs','08-24hrs','>24hrs']);
 });
-test('SA page-specific root causes differ; NSA includes degraded, unknown, and no impact',()=>{
+test('all SA root causes and parent-linked records are retained; NSA retains all non-outage records',()=>{
  const records=[r('a','2026-08-31',{root_cause:'Self Cleared'}),r('b','2026-08-31',{service_impact:'Degraded'}),r('c','2026-08-31',{service_impact:'No impact'}),r('d','2026-08-31',{service_impact:'Unknown'}),r('e','2026-08-31',{parent_tt:'parent'})];
- assert.equal(buildReport(records,state,profiles,meta,'weekly-sa').now.summary.tickets,0);
- assert.equal(buildReport(records,state,profiles,meta,'overview').now.summary.tickets,1);
+ assert.equal(buildReport(records,state,profiles,meta,'weekly-sa').now.summary.tickets,2);
+ assert.equal(buildReport(records,state,profiles,meta,'overview').now.summary.tickets,2);
  assert.equal(buildReport(records,state,profiles,meta,'weekly-nsa').now.summary.tickets,3);
 });
 test('monthly review includes day 31, with adjacent months and year rollover',()=>{
@@ -53,7 +53,7 @@ test('YoY compares matching YTD days and handles leap-day comparators',()=>{
 });
 test('visual count filters do not remove records from page KPIs',()=>{
  const records=[r('a','2026-08-31',{root_cause:'One ticket'}),r('b','2026-08-31'),r('c','2026-08-31'),r('d','2026-08-24',{root_cause:'Previous only'})];
- const report=buildReport(records,state,profiles,meta,'weekly-sa');assert.equal(report.now.summary.tickets,3);assert.deepEqual(comparisonGroups(report,'root_cause').map(x=>x.name),['Generator Issue','One ticket']);
+ const report=buildReport(records,state,profiles,meta,'weekly-sa');assert.equal(report.now.summary.tickets,3);assert.deepEqual(comparisonGroups(report,'root_cause').map(x=>x.name),['Generator Issue','One ticket','Previous only']);
 });
 test('zero-baseline and unavailable-period comparisons are explicit',()=>{
  assert.equal(change(2,0),100);assert.equal(change(0,0),0);assert.equal(change(0,2),-100);assert.equal(change(null,2),null);
