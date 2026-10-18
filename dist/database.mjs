@@ -31,7 +31,7 @@ export class PerformanceDatabase {
     if(!r.ok){let e;try{e=await r.json();}catch{}throw new Error(e?.message||e?.msg||`Database request failed (${r.status}).`);}
     if(r.status===204)return null;const t=await r.text();return t?JSON.parse(t):null;
   }
-  async member(){const r=await this.request('/rest/v1/performance_members?select=role,active&user_id=eq.'+encodeURIComponent(this.session.user.id));if(!r.length||!r[0].active)throw new Error('Your account needs performance access. Ask the project administrator to add it to performance_members.');return r[0];}
+  async member(){const r=await this.request('/rest/v1/performance_members?select=role,active&user_id=eq.'+encodeURIComponent(this.session.user.id));if(!r.length||!r[0].active)throw new Error('Performance access is not enabled for '+(this.session.user.email||'this account')+'. Ask the project owner to approve this email.');return r[0];}
   async latest(){return (await this.request('/rest/v1/performance_imports?select=id,status,metadata,record_count,min_date,max_date,completed_at,source_name&status=eq.complete&order=completed_at.desc,id.desc&limit=1'))[0]||null;}
   async load(progress=()=>{}) {
     await this.member();

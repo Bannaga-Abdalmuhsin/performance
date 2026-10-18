@@ -33,7 +33,7 @@ The source's `Exceed SLA` Yes/No and explicit SLA exemption determine the separa
 
 ## Upload future cumulative data
 
-1. Sign in under **Data & settings** with an existing Supabase Auth account approved in `performance_members`. The private hosted site has the project URL and publishable key configured. Public source distributions ask the user to supply the publishable key. Secret/service-role keys are rejected.
+1. Sign in on the opening screen or under **Data & settings** with an existing Supabase Auth account approved in `performance_members`. GitHub Pages and the private hosted site have the project URL and browser publishable key configured. API keys do not grant ticket access: RLS still requires an approved account. Secret/service-role keys are rejected. Bundled connection settings take priority over stale browser settings.
 2. Upload the **complete cumulative file** as CSV, JSON or JSON.GZ. Original source CSV headers or canonical database column names are accepted. The uploader selects the richest original row for each ticket. Review quarantined rows and duplicate counts, then save to PostgreSQL.
 3. The uploader creates a pending import, writes its rows, then calls `performance_complete_import(batch_id, expected_count)`. PostgreSQL validates the count, ticket identities and absence of duplicate ticket numbers before publishing atomically. Pending/failed uploads leave the previous completed snapshot live.
 4. Every visible connected dashboard checks for a newer completed snapshot every 30 seconds and on returning to the tab. A new snapshot refreshes all six views. Filters are preserved; the default latest-period selection advances when newer coverage arrives.
@@ -84,6 +84,6 @@ The project has no JavaScript dependencies or build step. Tests cover all six re
 
 The decoded source was reconciled to the JavaScript engine and PostgreSQL across 870 weekly/monthly page-scope aggregates. Record IDs, dates, duration counts and totals were also checked. Database role tests verified viewer read restrictions, analyst publication, count validation, immutable completed snapshots, server-side duration conversion and Riyadh dates, then rolled back. These are functional/data checks; a full browser layout and live user sign-in session have not been tested in this environment.
 
-`dist/private-snapshot.json.gz` exists only in the owner-private native Site source. It must never be pushed to the public GitHub repository or GitHub Pages. The public `dist/config.js` must have `privateSnapshot: null` and no embedded project key. Raw files, extracted records, temporary payloads and import containers must remain outside public source control.
+`dist/private-snapshot.json.gz` exists only in the owner-private native Site source. It must never be pushed to the public GitHub repository or GitHub Pages. The public `dist/config.js` has `privateSnapshot: null` and the browser publishable key; it never contains a secret or service-role key. Raw files, extracted records, temporary payloads and import containers must remain outside public source control.
 
 The public repository contains a formula-audit placeholder. The full extracted audit and operational source snapshot are available only in the owner-private hosted Site.
