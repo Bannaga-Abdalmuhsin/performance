@@ -1,5 +1,5 @@
-import {num,summarize} from './core.mjs?v=20261018weeks';
-import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261018weeks';
+import {num,summarize} from './core.mjs?v=20261018labels';
+import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261018labels';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -200,6 +200,6 @@ export function renderChartBoard(report,state,meta){
   const plan=CHART_PLANS[report.id];let hero='';
   if(plan.annualTickets||plan.annualDuration){let charts='';if(plan.annualTickets){const data=yearMonthData(report,state,meta,'tickets');charts+=panel({id:report.id+'-annual-tickets',title:'Monthly ticket volume by year',data,svg:comboSvg(data,{label:'Monthly ticket volume by year',width:950}),kind:'combo',fit:true});}if(plan.annualDuration){const data=yearMonthData(report,state,meta,'hours');charts+=panel({id:report.id+'-annual-duration',title:'MoM duration KPI',data,svg:comboSvg(data,{label:'Monthly restoration hours by year',stacked:true,width:950}),kind:'stacked-combo',fit:true});}hero+=`<div class="bi-chart-row ${plan.annualTickets?'two':'one'}">${charts}</div>`;}
   if(plan.area){const data=areaData(report,state,meta),area=panel({id:report.id+'-ticket-trend',title:'Tickets volume KPI trend',data,svg:areaSvg(data,{label:'Tickets volume KPI trend',id:'area-'+report.id}),kind:'area'});const funnel=funnelData(report);hero+=`<div class="bi-chart-row area-row">${area}${panel({id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Ticket age distribution'}),kind:'funnel',note:report.now.summary?.missingDuration?`${n(report.now.summary.missingDuration)} missing durations are excluded from age bands.`:''})}</div>`;}
-  let priorities='';if(plan.severity)priorities+=comparisonPanel(report,'severity','Severity TTs comparison');if(plan.label)priorities+=comparisonPanel(report,'site_label','Site label TTs comparison');
+  let priorities='';if(plan.severity)priorities+=comparisonPanel(report,'severity','Severity TTs comparison');if(plan.label)priorities+=comparisonPanel(report,'site_label','Sites Label TTs comparison');
   return `${kpis(report,state,meta)}${hero}<div class="bi-chart-row ${plan.severity?'two':'one'}">${priorities}</div><div class="bi-chart-row two regional-row">${regionPanel(report,'tickets')}${regionPanel(report,'duration')}</div>${comparisonPanel(report,'root_cause','Top root cause TTs comparison',plan.root,'bi-root-chart')}<div class="bi-chart-row two detail-row">${comparisonPanel(report,'district','District TTs comparison',plan.district)}${comparisonPanel(report,'duration_bucket','TT age group distribution',plan.duration)}</div>${plan.changeKpi?`<div class="bi-chart-row one">${changePanel(report)}</div>`:''}<div class="bi-chart-key"><span><i style="background:${TEAL}"></i>Ticket change</span><span><i style="background:${AMBER}"></i>Duration change</span><small>Select a chart category to inspect its records. Open any chart for a larger view.</small></div>`;
 }

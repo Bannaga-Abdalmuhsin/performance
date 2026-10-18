@@ -1,5 +1,5 @@
-import {num} from './core.mjs?v=20261018weeks';
-import {renderChartBoard} from './charts.mjs?v=20261018weeks';
+import {num} from './core.mjs?v=20261018labels';
+import {renderChartBoard} from './charts.mjs?v=20261018labels';
 const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const n=(v,d=0)=>num(v)?v.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
 const hrs=v=>num(v)?n(v/60,1):'—';
@@ -12,6 +12,6 @@ export function renderReport(report,state,meta){
   const s=report.now.summary;
   return `<div class="section-heading bi-page-heading"><div><h2>${esc(report.now.range?.label||'Period unavailable')}</h2><p>${esc(subtitle(report))}</p></div><span class="period-badge ${report.now.partial?'partial':''}">${report.now.partial?'Partial coverage':'All recorded data'}</span></div>${seriesHeader(report)}
   ${renderChartBoard(report,state,meta)}
-  <div class="report-metrics bi-supporting-metrics"><div><b>${n(s?.sites)}</b><span>COWs with tickets</span></div><div><b>${n(s?.repeatSites)}</b><span>COWs with 2+ tickets</span></div><div><b>${hrs(s?.mttr)} <small>hrs</small></b><span>Mean recorded restoration</span></div><div><b>${n(s?.slaCompliance,1)}<small>%</small></b><span>Source SLA compliance · ${n(s?.slaEligible)} eligible</span></div></div>
+  <div class="report-metrics bi-supporting-metrics"><div><b>${n(s?.sites)}</b><span>COWs with tickets</span></div><div><b>${n(s?.repeatSites)}</b><span>COWs with 2+ tickets</span></div><div><b>${hrs(s?.mttr)} <small>hrs</small></b><span>MTTR</span></div><div><b>${n(s?.slaCompliance,1)}<small>%</small></b><span>Source SLA compliance · ${n(s?.slaEligible)} eligible</span></div></div>
   `;
 }
