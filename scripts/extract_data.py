@@ -2,7 +2,7 @@
 
 Standard library only. Never commit generated operational data to a public repo.
 Usage: python scripts/extract_data.py source.xlsb report.pbix /private/output
-The PBIX layout is inspected; compressed VertiPaq rows and DAX are not decoded.
+For exact stored PBIX rows and all formulas use extract_powerbi.py instead.
 """
 import contextlib, csv, datetime as dt, gzip, hashlib, io, json, re, sys, zipfile
 from collections import Counter, defaultdict
@@ -11,8 +11,8 @@ from xlsb_reader import load_xlsb
 
 def clean(x):
     if x is None or str(x).startswith('#ERR'): return None
-    s = re.sub(r'\s+', ' ', str(x)).strip()
-    return s if s and s.lower() not in ('na', 'n/a', 'none', 'null') else None
+    s = str(x).strip()
+    return s or None
 
 def date(x):
     if isinstance(x, (float,int)) and 30000 < x < 80000:
@@ -40,7 +40,7 @@ def report_profile(path):
     exclusions=[v[0]['Literal']['Value'][1:-1] for v in vals]
     return {'name':'Power BI monthly scope','service_impact':'Outage','parent_blank':True,'excluded_root_causes':exclusions,
         'source_page':section['displayName'], 'source_file':Path(path).name,
-        'duration_note':'Workbook RestorationTime HHMMSS converted from Excel days to minutes. Compressed PBIX DAX expressions and VertiPaq data were not decoded; exact parity with New Duration Dax Min has not been established.'}
+        'duration_note':'Verified DAX: RestorationTime HHMMSS × 1440 minutes. Workbook precision may differ from stored PBIX values.'}
 
 def convert(workbook, pbix, output):
     output=Path(output); output.mkdir(parents=True,exist_ok=True)
@@ -48,12 +48,13 @@ def convert(workbook, pbix, output):
     raw=sheets['SIR - ACES NOC.']; groups=defaultdict(list)
     for row,r in raw.items():
         ticket=clean(r.get(1)); site=clean(r.get(16))
-        if ticket and re.fullmatch(r'(PR|PMR|TT)\d+',ticket): groups[(ticket,site)].append((row,r))
+        if ticket and re.fullmatch(r'(PR|PMR|TT)\d+',ticket): groups[(ticket,clean(r.get(11)),site,clean(r.get(19)))].append((row,r))
     quality=Counter(); records=[]; duplicate_log=[]
-    for (ticket,site), values in groups.items():
-        # Prefer the most complete snapshot, then the latest cleared timestamp,
-        # then the earlier source row. Keep a log of every discarded source row.
-        row,r=max(values,key=lambda p:(sum(clean(v) is not None for v in p[1].values()),date(p[1].get(26)) or '',-p[0]))
+    for (ticket,severity,site,district), values in groups.items():
+        # Power Query deduplicates Ticket+Severity+SiteID+District. Retain the first
+        # source occurrence deterministically and log the removed occurrences.
+        row,r=values[0]
+        source_key=ticket+(severity or '')+(site or '')+(district or '')
         if len(values)>1: duplicate_log.append({'ticket_number':ticket,'site_id':site,'retained_row':row+1,'discarded_rows':[i+1 for i,_ in values if i!=row]})
         created=date(r.get(25)); cleared=date(r.get(26)); referred=date(r.get(27))
         duration=minutes(r.get(29)); sla=minutes(r.get(30)); issues=[]
@@ -69,7 +70,7 @@ def convert(workbook, pbix, output):
         exclusion=clean(r.get(53)); excluded=(exclusion or '').lower() in ('exclude','excluded')
         region=(clean(r.get(18)) or 'Unknown').title()
         impact={'outage':'Outage','no':'No impact','degraded':'Degraded'}.get((clean(r.get(21)) or '').lower(),'Unknown')
-        records.append({'id':ticket+'|'+(site or ''),
+        records.append({'id':'pbi:'+source_key,'source_key':source_key,'restoration_days':r.get(29) if isinstance(r.get(29),(int,float)) else None,'duration_text':clean(r.get(28)),'duration_dax_minutes':None,
             'ticket_number':ticket,'site_id':site,'site_name':clean(r.get(17)),
             'region':region,'district':(clean(r.get(19)) or 'Unknown').title(),'city':clean(r.get(20)),
             'vendor':clean(r.get(5)) or 'Unknown','severity':clean(r.get(11)) or 'Unknown',
@@ -89,7 +90,7 @@ def convert(workbook, pbix, output):
         'record_count':len(records),'raw_record_count':sum(map(len,groups.values())),
         'duplicates_removed':sum(len(v)-1 for v in groups.values()),'min_date':min(dates),'max_date':max(dates),
         'extracted_at':dt.datetime.now(dt.timezone.utc).isoformat(),'timezone':'Asia/Riyadh',
-        'quality':dict(quality),'profile':profile,'format_version':1}
+        'quality':dict(quality),'profile':profile,'format_version':2,'grain':'Ticket Number + Severity + SiteID + District'}
     dataset={'meta':meta,'records':records}
     with gzip.open(output/'performance-data.json.gz','wt',encoding='utf-8',compresslevel=9) as f: json.dump(dataset,f,ensure_ascii=False,separators=(',',':'))
     (output/'metadata.json').write_text(json.dumps(meta,indent=2))

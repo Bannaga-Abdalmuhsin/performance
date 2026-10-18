@@ -15,10 +15,17 @@
   <div class="workspace"><span class="workspace-icon" data-icon="activity"></span><div>Performance analysis<small>USE CASE 04</small></div></div>
   <div class="nav-label">WORKSPACE</div>
   <nav aria-label="Main navigation">
-    <button class="nav-item active" data-view="overview"><span data-icon="layout"></span>Monthly overview</button>
+    <button class="nav-item" data-view="weekly-sa"><span data-icon="activity"></span>Weekly Overview (SA)</button>
+    <button class="nav-item" data-view="weekly-nsa"><span data-icon="activity"></span>Weekly Overview (NSA)</button>
+    <button class="nav-item active" data-view="overview"><span data-icon="layout"></span>Monthly Overview (SA)</button>
+    <button class="nav-item" data-view="mom-y"><span data-icon="calendar"></span>MoM Y</button>
+    <button class="nav-item" data-view="wow-y"><span data-icon="repeat"></span>WoW Y</button>
+    <button class="nav-item" data-view="yoy"><span data-icon="layers"></span>YoY</button>
+    <div class="nav-label nav-divider">REVIEW & TRACEABILITY</div>
     <button class="nav-item" data-view="causes"><span data-icon="layers"></span>Root cause analysis</button>
     <button class="nav-item" data-view="sites"><span data-icon="tower"></span>Site performance</button>
     <button class="nav-item" data-view="tickets"><span data-icon="ticket"></span>Ticket register<span class="nav-count" id="nav-count">—</span></button>
+    <button class="nav-item" data-view="formulas"><span data-icon="info"></span>Formulas & criteria</button>
     <button class="nav-item" data-view="review"><span data-icon="note"></span>Monthly review</button>
   </nav>
   <div class="sidebar-bottom">
@@ -28,16 +35,18 @@
   </div>
 </aside>
 <div class="app-shell">
-  <header class="topbar"><div class="breadcrumbs"><button class="icon-button mobile-only" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">MONTHLY REVIEW</span><button class="account" id="account-button" title="Database connection"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
+  <header class="topbar"><div class="breadcrumbs"><button class="icon-button mobile-only" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">COW PERFORMANCE</span><button class="account" id="account-button" title="Database connection"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
   <main id="main" tabindex="-1">
     <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button secondary" id="export-csv"><span data-icon="download"></span>Export data</button><button class="button primary" id="print-review"><span data-icon="file"></span>Review PDF</button></div></div>
     <div class="source-notice" id="source-notice" role="status"><span class="spinner"></span>Reading performance data…</div>
     <section class="filters" aria-label="Performance filters">
-      <label class="filter-field period-field"><span data-icon="calendar"></span><span class="filter-label">Review month<input id="period-filter" type="month" aria-label="Review month"></span></label>
+      <label class="filter-field period-field" id="period-field"><span data-icon="calendar"></span><span class="filter-label"><span id="period-label">Review month</span><input id="period-filter" type="month" aria-label="Review month"></span></label>
+      <label class="filter-field" id="year-field" hidden><span class="filter-label">Review year<select id="year-filter" aria-label="Review year"></select></span></label>
+      <label class="filter-field week-field" id="week-field" hidden><span class="filter-label">Review week<select id="week-filter" aria-label="Review week"></select></span></label>
       <label class="filter-field"><span class="filter-label">Region<select id="region-filter"><option value="all">All regions</option></select></span></label>
       <label class="filter-field"><span class="filter-label">District<select id="district-filter"><option value="all">All districts</option></select></span></label>
-      <label class="filter-field"><span class="filter-label">Service impact<select id="impact-filter"><option value="Outage">Outage (SA)</option><option value="No impact">No impact (NSA)</option><option value="Degraded">Degraded</option><option value="all">All impacts</option></select></span></label>
-      <label class="filter-field scope-field"><span class="filter-label">Analysis scope<select id="scope-filter"><option value="powerbi">Power BI monthly</option><option value="all">All recorded faults</option></select></span></label>
+      <label class="filter-field"><span class="filter-label">Service impact<select id="impact-filter"><option value="Outage">Outage (SA)</option><option value="NSA">Not Outage (NSA)</option><option value="No impact">No impact</option><option value="Degraded">Degraded</option><option value="all">All impacts</option></select></span></label>
+      <label class="filter-field scope-field"><span class="filter-label">Analysis scope<select id="scope-filter"><option value="powerbi">Power BI page criteria</option><option value="all">All recorded faults</option></select></span></label>
       <button class="filter-more" id="more-filters" aria-expanded="false"><span data-icon="filter"></span><span>More</span></button>
     </section>
     <section class="extra-filters" id="extra-filters" hidden>
@@ -54,13 +63,15 @@
 </div>
 <dialog id="detail-dialog" class="detail-dialog"><div class="dialog-header"><span class="eyebrow">TICKET DETAILS</span><button class="icon-button close-dialog" aria-label="Close ticket details" data-icon="close"></button></div><div id="detail-content"></div></dialog>
 <dialog id="method-dialog" class="method-dialog"><div class="dialog-header"><h2>Calculation notes</h2><button class="icon-button close-dialog" aria-label="Close calculation notes" data-icon="close"></button></div><div class="prose">
-  <h3>Reporting period and scope</h3><p>Tickets belong to the month of their Create Date in Saudi Arabia time (UTC+03:00). Previous-month and prior-year comparisons use the same filters. Months outside the source’s date range are unavailable.</p>
-  <p><b>Power BI monthly</b> uses the attached report’s Monthly Overview (SA) scope: blank Parent TT and its explicit root cause exclusions. Service impact remains selectable. <b>All recorded faults</b> removes the parent and root cause exclusions. Neither scope automatically excludes SLA exemptions from ticket volume.</p>
-  <h3>Volume, restoration and SLA</h3><p>Ticket volume counts distinct ticket numbers. A ticket/site pair is stored once; duplicate snapshots retain the most complete row, then the latest cleared date, then the earliest source row. Regional ticket counts can overlap if future files link one ticket to several sites.</p>
-  <p>Recorded restoration hours = sum of the workbook’s RestorationTime HHMMSS × 24. Mean restoration = total valid recorded minutes ÷ records with a recorded duration. Missing durations are excluded from these two measures and counted separately. Recorded zero durations remain zero.</p>
-  <p>SLA compliance = non-breached ÷ eligible records. Eligible records have an explicit Yes/No in Exceed SLA and are not marked Exclude/Excluded in the SLA column. Missing SLA outcomes are excluded. Source SLA decisions are preserved, including cases with historical date inconsistencies.</p>
-  <p>Service interruption hours use Service Impact Finish − Service Impact Start where both dates exist and the interval is nonnegative. These are ticket intervals; overlapping intervals are not merged and are not network availability. Availability requires a historical on-air inventory denominator, which was not supplied.</p>
-  <h3>Source limitations</h3><p>The PBIX report layout and monthly exclusion list were read. Its compressed VertiPaq data and DAX expressions were not decoded. The web page uses the supplied outage workbook, so exact equality with the PBIX measure New Duration Dax Min has not been established.</p><p>Source date inconsistencies and recorded durations that differ from create-to-clear time remain visible in the data checks. The original workbook is unchanged. No automatic refresh from RTTS or Power BI is configured.</p>
+  <h3>Verified Power BI criteria</h3><p>All five original pages were inspected. The semantic model yielded 123 DAX measures, 88 calculated columns (including automatic date columns), 13 calculated tables and two Power Query definitions. Open <button class="text-button" data-go="formulas">Formulas & criteria</button> to inspect every expression and visual query.</p>
+  <p>SA uses Service Impacted = Outage. NSA uses Service Impacted ≠ Outage, including Degraded and blank impacts, exactly as the saved report filters. Every page requires blank Parent TT; SA pages retain their own root cause exclusions. The “All recorded faults” scope removes parent and root cause exclusions within the page’s impact group.</p>
+  <h3>Counts, durations and calendar</h3><p>Ticket volume = COUNTROWS of the filtered fact table. Distinct ticket numbers are shown separately. The Power Query grain is Ticket Number + Severity + SiteID + District. The stored PBIX has one repeated grain key; both rows remain visible and flagged. New raw CSV imports retain the first row at that grain; prepared PBIX variant keys preserve the saved model rows.</p>
+  <p>New Duration Dax Min = RestorationTime HHMMSS × 1440. Total hours = sum of those minutes ÷ 60. Mean restoration uses records with a duration. Missing values and recorded zero remain distinct. Duration bands are &lt;2hrs, 02–04hrs, 04–08hrs, 08–24hrs and ≥24hrs (the original label is “&gt;24hrs”).</p>
+  <p>Dates use Create Date in Asia/Riyadh. Weeks use WEEKNUM(Date,1): Sunday starts, and January 1 belongs to week 1. Weekly overviews compare adjacent weeks. Monthly overview compares the selected review month to the previous months. MoM Y compares that month across years; WoW Y compares that week number across years. YoY compares matching year-to-date coverage through the selected review month. Partial months in MoM Y use matching days. Partial coverage is labelled.</p>
+  <h3>Legacy formula findings</h3><p>The saved model contains no calendar relationships. Some DAX measures hard-code August 1–30, mix week 12 ticket volume with week 22 duration, use the entire prior year at January/week 1, or subtract a fixed four tickets. Those exact formulas are preserved in the audit. Live dashboards explicitly filter Create Date, include full selected months, use adjacent periods at year boundaries, and show observed row counts without the unexplained −4. These changes make future uploads comparable.</p>
+  <p>Changes use (current − previous) ÷ previous × 100. New activity against zero displays +100%; both zero displays 0%, following the report’s weekly rule. Periods outside source coverage display no comparison. The original “Outperform SLA %” visual references ticket-change measures; it is not treated as an SLA percentage.</p>
+  <h3>SLA and data refresh</h3><p>Source SLA compliance = non-breached ÷ eligible records. Eligibility requires a recorded Yes/No in Exceed SLA and no explicit SLA exclusion. This is labelled separately from the legacy calculated SLA columns, which have no stored values in this file. Network availability is not calculated without a historical on-air inventory denominator.</p>
+  <p>A connected, approved Supabase account checks for a new completed cumulative snapshot every 30 seconds while this tab is visible. All six dashboards switch together after the row count is verified. Pending or failed uploads keep the previous complete snapshot live. The private Power BI baseline remains a static snapshot until you sign in to the database.</p>
 </div></dialog>
 <div class="toast" id="toast" role="status" hidden></div>
 </body></html>

@@ -11,13 +11,24 @@ test('browser key validation rejects secret and service role credentials',()=>{
 });
 test('loading follows keyset cursors even when the server returns fewer rows than requested',async()=>{
  let page=0,imports=0;const db=dbMock(async path=>{
-  if(path.includes('performance_imports')){imports++;return [{id:'batch1',status:'complete',metadata:{min_date:'2026-08-01',max_date:'2026-08-31'}}];}
+  if(path.includes('performance_imports')){imports++;assert.ok(path.includes('status=eq.complete'));return [{id:'batch1',status:'complete',record_count:2,min_date:'2026-08-01',max_date:'2026-08-31',metadata:{}}];}
+  assert.ok(path.includes('import_id=eq.batch1'));
   page++;if(page===1)return [{id:'a',created_date:'2026-08-01'}];if(page===2){assert.ok(path.includes('id=gt.a'));return [{id:'b',created_date:'2026-08-31'}];}return [];
- });const data=await db.load();assert.equal(data.records.length,2);assert.equal(page,3);assert.equal(imports,2);
+ });const data=await db.load();assert.equal(data.records.length,2);assert.equal(page,3);assert.equal(imports,1);assert.equal(data.meta.import_id,'batch1');
 });
-test('failed and pending imports cannot silently produce partial monthly results',async()=>{
- for(const status of ['failed','pending']){const db=dbMock(async()=>[{id:'b',status}]);await assert.rejects(()=>db.load(),new RegExp(status));}
- let count=0;const db=dbMock(async path=>{if(path.includes('performance_imports'))return [{id:++count===1?'before':'after',status:'complete',metadata:{}}];return [];});await assert.rejects(()=>db.load(),/changed while loading/);
+test('no complete snapshot and count mismatches cannot produce partial results',async()=>{
+ const empty=dbMock(async()=>[]);await assert.rejects(()=>empty.load(),/completed performance import/);
+ const db=dbMock(async path=>path.includes('performance_imports')?[{id:'b',status:'complete',record_count:5,metadata:{}}]:[]);await assert.rejects(()=>db.load(),/count mismatch/);
+});
+test('invalid repeated pagination cursors stop instead of looping forever',async()=>{
+ const db=dbMock(async path=>path.includes('performance_imports')?[{id:'b',status:'complete',record_count:2,metadata:{}}]:[{id:'same'}]);await assert.rejects(()=>db.load(),/pagination cursor/);
+});
+test('snapshot identity makes new upload publication atomic for readers',async()=>{
+ let calls=0;const db=dbMock(async path=>{
+   if(path.includes('performance_imports'))return [{id:++calls===1?'old-complete':'new-complete',status:'complete',record_count:1,metadata:{},min_date:'2026-08-01',max_date:'2026-08-31'}];
+   if(path.includes('id=gt.'))return [];
+   return [{id:path.includes('old-complete')?'old-ticket':'new-ticket'}];
+ });const before=await db.load(),after=await db.load();assert.equal(before.records[0].id,'old-ticket');assert.equal(after.records[0].id,'new-ticket');assert.notEqual(before.meta.import_id,after.meta.import_id);
 });
 test('failed import is marked failed and never finalized',async()=>{
  let finalized=false,marked=false;const db=dbMock(async(path,options)=>{

@@ -1,6 +1,7 @@
 {
-  "name": "Power BI monthly scope",
-  "service_impact": "Outage",
+  "id": "overview",
+  "name": "Monthly Overview (SA)",
+  "impact_mode": "SA",
   "parent_blank": true,
   "excluded_root_causes": [
     "3rd Party Fault-Telecom",
@@ -110,7 +111,210 @@
     "Weather Issue",
     "LOS"
   ],
+  "rules": [
+    {
+      "field": "Service Impacted",
+      "exclude": false,
+      "values": [
+        "Outage"
+      ]
+    },
+    {
+      "field": "Parent TT",
+      "exclude": false,
+      "values": [
+        null
+      ]
+    },
+    {
+      "field": "Root Cause Details",
+      "exclude": true,
+      "values": [
+        "3rd Party Fault-Telecom",
+        "ACES Telecom",
+        "Antenna Fault-Telecom",
+        "Auto-restored",
+        "Auto-restored-Telecom",
+        "bad weather",
+        "BBU Cable Connections-Telecom",
+        "BTS SW-Telecom",
+        "Cell Configuration-Telecom",
+        "Configuration-Telecom",
+        "Dispute-Telecom",
+        "DUG-Telecom",
+        "Duplicate Ticket",
+        "Fiber Cable-telecom",
+        "GPS Antenna-Telecom",
+        "Hardware-Telecom",
+        "Heavy Rain",
+        "High Wind",
+        "High Wind-Telecom",
+        "IDU Fault-Telecom",
+        "IF Connector-Telecom",
+        "Interface Card Fault-Telecom",
+        "Interference",
+        "Jumper Cables-Telecom",
+        "Link Issue",
+        "Link Issue - Telecom",
+        "Link-Telecom",
+        "MCU - Configuration",
+        "MDT",
+        "Modem Fault-Telecom",
+        "MRFU-Telecom",
+        "MW-Telecom",
+        "New Implementation-Telecom",
+        "New Integration-Telecom",
+        "No issue-Telecom",
+        "NRF-Telecom",
+        "O&M Activity-Telecom",
+        "Others",
+        "Others-Telecom",
+        "PMR",
+        "Port Reset-Telecom",
+        "PSU-Telecom",
+        "RAU/ODU-Telecom",
+        "Restart-Telecom",
+        "RF Cable Connections-Telecom",
+        "RRU Connector",
+        "Self Cleared-Telecom",
+        "SFP Fault-Telecom",
+        "Software-Telecom",
+        "Telecom",
+        "Telecom Cables",
+        "Telecom Issue",
+        "XPIC-telecom",
+        "Antenna System",
+        "Bad Weather",
+        "Configuration",
+        "Fiber Cable",
+        "IF Card Fault",
+        "Link Flap",
+        "MW LOS",
+        "New Integration",
+        "PMR related",
+        "Re-Alignment",
+        "SFP Fault",
+        "Software",
+        "Antenna",
+        "Antenna Fault",
+        "BTS SW",
+        "CABLE",
+        "Cell Configuration",
+        "Cleaned",
+        "Cleanup of Files/Drive/Disk",
+        "Connection Failure",
+        "Contactor failure",
+        "Design Issue - Cable / Breaker Under Sized",
+        "Display unit defective",
+        "DUG",
+        "DUS",
+        "E1 Cable",
+        "Ethernet Cable",
+        "GPS Antenna",
+        "IDU Fault",
+        "IF Connector",
+        "Interface Card Fault",
+        "Jumper Cables",
+        "Link Configuration",
+        "Link/Interface Down",
+        "Modem Fault",
+        "MRFU",
+        "MW Back Plane",
+        "MW Fading",
+        "MW Restart",
+        "MW-ODU",
+        "New Implementation",
+        "No issue",
+        "NRF",
+        "Port Reset",
+        "PSU",
+        "RAU/ODU",
+        "RF Cable Connections",
+        "Telecom Sync. issue- Ping pong with Ericsson team",
+        "TX Board",
+        "Upgrade",
+        "XPIC",
+        "Weather Issue",
+        "LOS"
+      ]
+    }
+  ],
+  "visuals": {
+    "root_cause": {
+      "row_rules": [],
+      "group_rules": [
+        {
+          "period": 1,
+          "kind": 1,
+          "value": 0,
+          "not": false
+        },
+        {
+          "period": 0,
+          "kind": 1,
+          "value": 0,
+          "not": false
+        }
+      ],
+      "top_n": null,
+      "notes": []
+    },
+    "district": {
+      "row_rules": [],
+      "group_rules": [
+        {
+          "period": 1,
+          "kind": 1,
+          "value": 0,
+          "not": false
+        },
+        {
+          "period": 0,
+          "kind": 1,
+          "value": 0,
+          "not": false
+        }
+      ],
+      "top_n": null,
+      "notes": []
+    },
+    "site_label": {
+      "row_rules": [
+        {
+          "field": "Site Label",
+          "exclude": true,
+          "values": [
+            null
+          ]
+        }
+      ],
+      "group_rules": [
+        {
+          "period": 1,
+          "kind": 1,
+          "value": 0,
+          "not": false
+        }
+      ],
+      "top_n": null,
+      "notes": []
+    },
+    "duration_bucket": {
+      "row_rules": [
+        {
+          "field": "Duration Criteria",
+          "exclude": true,
+          "values": [
+            null
+          ]
+        }
+      ],
+      "group_rules": [],
+      "top_n": null,
+      "notes": []
+    }
+  },
   "source_page": "Monthly Overview (SA)",
   "source_file": "Weekly Overview V3.pbix",
-  "duration_note": "Workbook RestorationTime HHMMSS converted from Excel days to minutes. Compressed PBIX DAX expressions and VertiPaq data were not decoded; exact parity with New Duration Dax Min has not been established."
+  "duration_note": "Verified from decoded DAX: RestorationTime HHMMSS × 1440 minutes."
 }

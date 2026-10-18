@@ -1,4 +1,4 @@
-export const FIELDS = ['id','ticket_number','site_id','site_name','region','district','city','vendor','severity','service_impact','site_label','created_at','created_date','cleared_at','referred_at','impact_start','impact_finish','duration_minutes','sla_minutes','sla_breached','sla_excluded','exclusion_reason','parent_tt','root_cause','repair_details','cleared_group','source_row','quality_flags'];
+export const FIELDS = ['id','ticket_number','site_id','site_name','region','district','city','vendor','severity','service_impact','site_label','created_at','created_date','cleared_at','referred_at','impact_start','impact_finish','duration_minutes','sla_minutes','sla_breached','sla_excluded','exclusion_reason','parent_tt','root_cause','repair_details','cleared_group','source_row','quality_flags','source_key','restoration_days','duration_text','duration_dax_minutes'];
 export const num = (v) => typeof v === 'number' && Number.isFinite(v);
 export const sum = (xs) => xs.reduce((a,b)=>a+(num(b)?b:0),0);
 export const monthOf = (r) => r.created_date?.slice(0,7);
@@ -12,6 +12,7 @@ export function scopeFilter(records, filters={}, profile={}) {
       if(filters[field] && filters[field]!=='all' && r[field]!==filters[field]) return false;
     }
     if(filters.period && monthOf(r)!==filters.period) return false;
+    if(filters.duration_bucket && filters.duration_bucket!=='all'){const v=r.duration_minutes,b=!num(v)?'Missing':v>=1440?'>24hrs':v>=480?'08-24hrs':v>=240?'04-08hrs':v>=120?'02-04hrs':'<2hrs';if(b!==filters.duration_bucket)return false;}
     if(filters.query) {
       const q=filters.query.toLowerCase();
       if(![r.ticket_number,r.site_id,r.site_name,r.root_cause,r.repair_details].some(v=>String(v||'').toLowerCase().includes(q))) return false;
@@ -26,8 +27,8 @@ export function summarize(records) {
   const sites=new Map();
   for(const r of records) if(r.site_id) sites.set(r.site_id,(sites.get(r.site_id)||0)+1);
   const validImpact=records.filter(r=>r.impact_start&&r.impact_finish&&r.impact_finish>=r.impact_start);
-  return { tickets:new Set(records.map(r=>r.ticket_number)).size, rows:records.length,
-    durationMinutes:durations.length?sum(durations):null, durationCount:durations.length,
+  return { tickets:records.length, distinctTickets:new Set(records.map(r=>r.ticket_number)).size, rows:records.length,
+    durationMinutes:sum(durations), durationCount:durations.length,
     mttr:durations.length?sum(durations)/durations.length:null,
     sites:sites.size, repeatSites:[...sites.values()].filter(n=>n>=2).length,
     breached, slaEligible:sla.length, slaCompliance:sla.length?(sla.length-breached)/sla.length*100:null,
@@ -87,8 +88,10 @@ export function normalizeRecords(input) {
   const date=(x)=>{
     if(!clean(x))return null;
     if(number(x)>30000&&number(x)<80000)return new Date(Date.UTC(1899,11,30)+Math.round(Number(x)*86400000)).toISOString().slice(0,19)+'+03:00';
-    const s=String(x).trim(),d=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d\d:\d\d(?::\d\d)?))?$/);
+    let s=String(x).trim();const us=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})(?:[ T](\d{1,2}):(\d\d)(?::(\d\d))?)?$/);if(us)s=`20${us[3]}-${us[1].padStart(2,'0')}-${us[2].padStart(2,'0')}T${(us[4]||'00').padStart(2,'0')}:${us[5]||'00'}:${us[6]||'00'}+03:00`;const d=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d\d:\d\d(?::\d\d)?))?$/);
     const value=d?`${d[3]}-${d[2].padStart(2,'0')}-${d[1].padStart(2,'0')}T${d[4]||'00:00:00'}${d[4]?.length===5?':00':''}+03:00`:s.length===10?s+'T00:00:00+03:00':s.replace(' ','T')+(/(Z|[+-]\d\d:\d\d)$/.test(s)?'':'+03:00');
+    const [yy,mm,dd]=value.slice(0,10).split('-').map(Number);
+    if(!yy||!mm||!dd||new Date(Date.UTC(yy,mm-1,dd)).toISOString().slice(0,10)!==value.slice(0,10))return null;
     return Number.isNaN(Date.parse(value))?null:value;
   };
   const groups=new Map(),rejected=[];
@@ -96,18 +99,21 @@ export function normalizeRecords(input) {
     const copy={...r}; for(const [from,to]of Object.entries(aliases))if(copy[to]===undefined&&copy[from]!==undefined)copy[to]=copy[from];
     const ticket=clean(copy.ticket_number),site=clean(copy.site_id),created=date(copy.created_at)||date(copy.created_date);
     if(!ticket||!created){rejected.push({row:i+2,reason:!ticket?'Missing ticket number':'Missing or invalid create date'});return;}
-    const duration=number(copy.duration_minutes)??(number(copy['RestorationTime HHMMSS'])!==null?number(copy['RestorationTime HHMMSS'])*1440:null);
+    const days=number(copy.restoration_days)??number(copy['RestorationTime HHMMSS']);
+    const duration=days!==null?days*1440:number(copy.duration_minutes)??(number(copy['RestorationTime HHMMSS'])!==null?number(copy['RestorationTime HHMMSS'])*1440:null);
     let flags=copy.quality_flags||[]; if(typeof flags==='string'){try{flags=JSON.parse(flags)}catch{flags=[flags]}}
     if(!Array.isArray(flags))flags=[];
     if(num(duration)&&duration<0)flags.push('Negative duration rejected');
+    const sourceKey=clean(copy.source_key)||ticket+(clean(copy.severity)||'')+(site||'')+(clean(copy.district)||'');
     const record=Object.fromEntries(FIELDS.map(k=>[k,clean(copy[k])]));
-    Object.assign(record,{id:ticket+'|'+(site||''),ticket_number:ticket,site_id:site,created_at:created,created_date:created.slice(0,10),cleared_at:date(copy.cleared_at),referred_at:date(copy.referred_at),impact_start:date(copy.impact_start),impact_finish:date(copy.impact_finish),duration_minutes:num(duration)&&duration>=0?duration:null,sla_minutes:number(copy.sla_minutes)??(number(copy['SLA Time'])!==null?number(copy['SLA Time'])*1440:null),sla_breached:bool(copy.sla_breached??copy['Exceed SLA']),sla_excluded:bool(copy.sla_excluded)??['exclude','excluded'].includes(String(copy['SLA (Include / Excluded)']||'').toLowerCase()),source_row:number(copy.source_row)||i+2,quality_flags:flags});
+    Object.assign(record,{id:'pbi:'+sourceKey,source_key:sourceKey,restoration_days:days,duration_text:clean(copy.duration_text??copy['RestorationTime DDHHMMSS']),duration_dax_minutes:number(copy.duration_dax_minutes),ticket_number:ticket,site_id:site,created_at:created,created_date:created.slice(0,10),cleared_at:date(copy.cleared_at),referred_at:date(copy.referred_at),impact_start:date(copy.impact_start),impact_finish:date(copy.impact_finish),duration_minutes:num(duration)&&duration>=0?duration:null,sla_minutes:number(copy.sla_minutes)??(number(copy['SLA Time'])!==null?number(copy['SLA Time'])*1440:null),sla_breached:bool(copy.sla_breached??copy['Exceed SLA']),sla_excluded:bool(copy.sla_excluded)??['exclude','excluded'].includes(String(copy['SLA (Include / Excluded)']||'').toLowerCase()),source_row:number(copy.source_row)||i+2,quality_flags:flags});
     for(const k of ['region','district'])record[k]=(record[k]||'Unknown').toLowerCase().replace(/\b\w/g,s=>s.toUpperCase());
     record.service_impact=({no:'No impact','no impact':'No impact',outage:'Outage',degraded:'Degraded'})[(record.service_impact||'').toLowerCase()]||'Unknown';
     for(const k of ['root_cause','vendor','severity','site_label'])record[k]||='Unknown';
-    // Match the extractor's completeness preference and never sum duplicate snapshots.
+    // Match Power Query: first occurrence of Ticket+Severity+SiteID+District.
+    // Prepared PBIX rows include stable variant keys for retained model anomalies.
     const key=record.id,existing=groups.get(key),score=Object.values(copy).filter(v=>clean(v)!==null).length;
-    if(!existing||score>existing.score||(score===existing.score&&(record.cleared_at||'')>(existing.record.cleared_at||'')))groups.set(key,{record,score});
+    if(!existing)groups.set(key,{record,score});
   });
   return {records:[...groups.values()].map(x=>x.record),rejected,duplicates:input.length-rejected.length-groups.size};
 }

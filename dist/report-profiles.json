@@ -1,0 +1,1369 @@
+{
+  "weekly-sa": {
+    "id": "weekly-sa",
+    "name": "Weekly Overview (SA)",
+    "impact_mode": "SA",
+    "parent_blank": true,
+    "excluded_root_causes": [
+      "3rd Party Fault-Telecom",
+      "ACES Telecom",
+      "Antenna Fault-Telecom",
+      "Auto-restored-Telecom",
+      "bad weather",
+      "BBU Cable Connections-Telecom",
+      "BTS SW-Telecom",
+      "Cell Configuration-Telecom",
+      "Configuration-Telecom",
+      "Dispute-Telecom",
+      "DUG-Telecom",
+      "Duplicate Ticket",
+      "Fiber Cable-telecom",
+      "GPS Antenna-Telecom",
+      "Hardware-Telecom",
+      "Heavy Rain",
+      "High Wind",
+      "High Wind-Telecom",
+      "IDU Fault-Telecom",
+      "IF Connector-Telecom",
+      "Interface Card Fault-Telecom",
+      "Interference",
+      "Jumper Cables-Telecom",
+      "Link Issue",
+      "Link Issue - Telecom",
+      "Link-Telecom",
+      "MCU - Configuration",
+      "MDT",
+      "Modem Fault-Telecom",
+      "MRFU-Telecom",
+      "MW-Telecom",
+      "New Implementation-Telecom",
+      "New Integration-Telecom",
+      "No issue-Telecom",
+      "NRF-Telecom",
+      "O&M Activity-Telecom",
+      "Others",
+      "Others-Telecom",
+      "PMR",
+      "Port Reset-Telecom",
+      "PSU-Telecom",
+      "RAU/ODU-Telecom",
+      "Restart-Telecom",
+      "RF Cable Connections-Telecom",
+      "RRU Connector",
+      "Self Cleared",
+      "Self Cleared-Telecom",
+      "SFP Fault-Telecom",
+      "Software-Telecom",
+      "Telecom",
+      "Telecom Cables",
+      "XPIC-telecom",
+      "Bad Weather",
+      "Link Flap",
+      "PMR related",
+      "Self-Cleared"
+    ],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": false,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      },
+      {
+        "field": "Root Cause Details",
+        "exclude": true,
+        "values": [
+          "3rd Party Fault-Telecom",
+          "ACES Telecom",
+          "Antenna Fault-Telecom",
+          "Auto-restored-Telecom",
+          "bad weather",
+          "BBU Cable Connections-Telecom",
+          "BTS SW-Telecom",
+          "Cell Configuration-Telecom",
+          "Configuration-Telecom",
+          "Dispute-Telecom",
+          "DUG-Telecom",
+          "Duplicate Ticket",
+          "Fiber Cable-telecom",
+          "GPS Antenna-Telecom",
+          "Hardware-Telecom",
+          "Heavy Rain",
+          "High Wind",
+          "High Wind-Telecom",
+          "IDU Fault-Telecom",
+          "IF Connector-Telecom",
+          "Interface Card Fault-Telecom",
+          "Interference",
+          "Jumper Cables-Telecom",
+          "Link Issue",
+          "Link Issue - Telecom",
+          "Link-Telecom",
+          "MCU - Configuration",
+          "MDT",
+          "Modem Fault-Telecom",
+          "MRFU-Telecom",
+          "MW-Telecom",
+          "New Implementation-Telecom",
+          "New Integration-Telecom",
+          "No issue-Telecom",
+          "NRF-Telecom",
+          "O&M Activity-Telecom",
+          "Others",
+          "Others-Telecom",
+          "PMR",
+          "Port Reset-Telecom",
+          "PSU-Telecom",
+          "RAU/ODU-Telecom",
+          "Restart-Telecom",
+          "RF Cable Connections-Telecom",
+          "RRU Connector",
+          "Self Cleared",
+          "Self Cleared-Telecom",
+          "SFP Fault-Telecom",
+          "Software-Telecom",
+          "Telecom",
+          "Telecom Cables",
+          "XPIC-telecom",
+          "Bad Weather",
+          "Link Flap",
+          "PMR related",
+          "Self-Cleared"
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 0,
+            "kind": 2,
+            "value": 1,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 2,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "site_label": {
+        "row_rules": [
+          {
+            "field": "Site Label",
+            "exclude": true,
+            "contains": "na"
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "severity": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      }
+    }
+  },
+  "weekly-nsa": {
+    "id": "weekly-nsa",
+    "name": "Weekly Overview (NSA)",
+    "impact_mode": "NSA",
+    "parent_blank": true,
+    "excluded_root_causes": [],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": true,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 2,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 2,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "severity": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      }
+    }
+  },
+  "overview": {
+    "id": "overview",
+    "name": "Monthly Overview (SA)",
+    "impact_mode": "SA",
+    "parent_blank": true,
+    "excluded_root_causes": [
+      "3rd Party Fault-Telecom",
+      "ACES Telecom",
+      "Antenna Fault-Telecom",
+      "Auto-restored",
+      "Auto-restored-Telecom",
+      "bad weather",
+      "BBU Cable Connections-Telecom",
+      "BTS SW-Telecom",
+      "Cell Configuration-Telecom",
+      "Configuration-Telecom",
+      "Dispute-Telecom",
+      "DUG-Telecom",
+      "Duplicate Ticket",
+      "Fiber Cable-telecom",
+      "GPS Antenna-Telecom",
+      "Hardware-Telecom",
+      "Heavy Rain",
+      "High Wind",
+      "High Wind-Telecom",
+      "IDU Fault-Telecom",
+      "IF Connector-Telecom",
+      "Interface Card Fault-Telecom",
+      "Interference",
+      "Jumper Cables-Telecom",
+      "Link Issue",
+      "Link Issue - Telecom",
+      "Link-Telecom",
+      "MCU - Configuration",
+      "MDT",
+      "Modem Fault-Telecom",
+      "MRFU-Telecom",
+      "MW-Telecom",
+      "New Implementation-Telecom",
+      "New Integration-Telecom",
+      "No issue-Telecom",
+      "NRF-Telecom",
+      "O&M Activity-Telecom",
+      "Others",
+      "Others-Telecom",
+      "PMR",
+      "Port Reset-Telecom",
+      "PSU-Telecom",
+      "RAU/ODU-Telecom",
+      "Restart-Telecom",
+      "RF Cable Connections-Telecom",
+      "RRU Connector",
+      "Self Cleared-Telecom",
+      "SFP Fault-Telecom",
+      "Software-Telecom",
+      "Telecom",
+      "Telecom Cables",
+      "Telecom Issue",
+      "XPIC-telecom",
+      "Antenna System",
+      "Bad Weather",
+      "Configuration",
+      "Fiber Cable",
+      "IF Card Fault",
+      "Link Flap",
+      "MW LOS",
+      "New Integration",
+      "PMR related",
+      "Re-Alignment",
+      "SFP Fault",
+      "Software",
+      "Antenna",
+      "Antenna Fault",
+      "BTS SW",
+      "CABLE",
+      "Cell Configuration",
+      "Cleaned",
+      "Cleanup of Files/Drive/Disk",
+      "Connection Failure",
+      "Contactor failure",
+      "Design Issue - Cable / Breaker Under Sized",
+      "Display unit defective",
+      "DUG",
+      "DUS",
+      "E1 Cable",
+      "Ethernet Cable",
+      "GPS Antenna",
+      "IDU Fault",
+      "IF Connector",
+      "Interface Card Fault",
+      "Jumper Cables",
+      "Link Configuration",
+      "Link/Interface Down",
+      "Modem Fault",
+      "MRFU",
+      "MW Back Plane",
+      "MW Fading",
+      "MW Restart",
+      "MW-ODU",
+      "New Implementation",
+      "No issue",
+      "NRF",
+      "Port Reset",
+      "PSU",
+      "RAU/ODU",
+      "RF Cable Connections",
+      "Telecom Sync. issue- Ping pong with Ericsson team",
+      "TX Board",
+      "Upgrade",
+      "XPIC",
+      "Weather Issue",
+      "LOS"
+    ],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": false,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      },
+      {
+        "field": "Root Cause Details",
+        "exclude": true,
+        "values": [
+          "3rd Party Fault-Telecom",
+          "ACES Telecom",
+          "Antenna Fault-Telecom",
+          "Auto-restored",
+          "Auto-restored-Telecom",
+          "bad weather",
+          "BBU Cable Connections-Telecom",
+          "BTS SW-Telecom",
+          "Cell Configuration-Telecom",
+          "Configuration-Telecom",
+          "Dispute-Telecom",
+          "DUG-Telecom",
+          "Duplicate Ticket",
+          "Fiber Cable-telecom",
+          "GPS Antenna-Telecom",
+          "Hardware-Telecom",
+          "Heavy Rain",
+          "High Wind",
+          "High Wind-Telecom",
+          "IDU Fault-Telecom",
+          "IF Connector-Telecom",
+          "Interface Card Fault-Telecom",
+          "Interference",
+          "Jumper Cables-Telecom",
+          "Link Issue",
+          "Link Issue - Telecom",
+          "Link-Telecom",
+          "MCU - Configuration",
+          "MDT",
+          "Modem Fault-Telecom",
+          "MRFU-Telecom",
+          "MW-Telecom",
+          "New Implementation-Telecom",
+          "New Integration-Telecom",
+          "No issue-Telecom",
+          "NRF-Telecom",
+          "O&M Activity-Telecom",
+          "Others",
+          "Others-Telecom",
+          "PMR",
+          "Port Reset-Telecom",
+          "PSU-Telecom",
+          "RAU/ODU-Telecom",
+          "Restart-Telecom",
+          "RF Cable Connections-Telecom",
+          "RRU Connector",
+          "Self Cleared-Telecom",
+          "SFP Fault-Telecom",
+          "Software-Telecom",
+          "Telecom",
+          "Telecom Cables",
+          "Telecom Issue",
+          "XPIC-telecom",
+          "Antenna System",
+          "Bad Weather",
+          "Configuration",
+          "Fiber Cable",
+          "IF Card Fault",
+          "Link Flap",
+          "MW LOS",
+          "New Integration",
+          "PMR related",
+          "Re-Alignment",
+          "SFP Fault",
+          "Software",
+          "Antenna",
+          "Antenna Fault",
+          "BTS SW",
+          "CABLE",
+          "Cell Configuration",
+          "Cleaned",
+          "Cleanup of Files/Drive/Disk",
+          "Connection Failure",
+          "Contactor failure",
+          "Design Issue - Cable / Breaker Under Sized",
+          "Display unit defective",
+          "DUG",
+          "DUS",
+          "E1 Cable",
+          "Ethernet Cable",
+          "GPS Antenna",
+          "IDU Fault",
+          "IF Connector",
+          "Interface Card Fault",
+          "Jumper Cables",
+          "Link Configuration",
+          "Link/Interface Down",
+          "Modem Fault",
+          "MRFU",
+          "MW Back Plane",
+          "MW Fading",
+          "MW Restart",
+          "MW-ODU",
+          "New Implementation",
+          "No issue",
+          "NRF",
+          "Port Reset",
+          "PSU",
+          "RAU/ODU",
+          "RF Cable Connections",
+          "Telecom Sync. issue- Ping pong with Ericsson team",
+          "TX Board",
+          "Upgrade",
+          "XPIC",
+          "Weather Issue",
+          "LOS"
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "site_label": {
+        "row_rules": [
+          {
+            "field": "Site Label",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      }
+    }
+  },
+  "mom-y": {
+    "id": "mom-y",
+    "name": "MOM Y",
+    "impact_mode": "SA",
+    "parent_blank": true,
+    "excluded_root_causes": [
+      "3rd Party Fault-Telecom",
+      "ACES Telecom",
+      "Antenna Fault-Telecom",
+      "Auto-restored-Telecom",
+      "bad weather",
+      "BBU Cable Connections-Telecom",
+      "BTS SW-Telecom",
+      "Cell Configuration-Telecom",
+      "Configuration-Telecom",
+      "Dispute-Telecom",
+      "DUG-Telecom",
+      "Duplicate Ticket",
+      "Fiber Cable-telecom",
+      "GPS Antenna-Telecom",
+      "Hardware-Telecom",
+      "Heavy Rain",
+      "High Wind",
+      "High Wind-Telecom",
+      "IDU Fault-Telecom",
+      "IF Connector-Telecom",
+      "Interface Card Fault-Telecom",
+      "Interference",
+      "Jumper Cables-Telecom",
+      "Link Issue",
+      "Link Issue - Telecom",
+      "Link-Telecom",
+      "MCU - Configuration",
+      "MDT",
+      "Modem Fault-Telecom",
+      "MRFU-Telecom",
+      "MW-Telecom",
+      "New Implementation-Telecom",
+      "New Integration-Telecom",
+      "No issue-Telecom",
+      "NRF-Telecom",
+      "O&M Activity-Telecom",
+      "Others-Telecom",
+      "PMR",
+      "Port Reset-Telecom",
+      "PSU-Telecom",
+      "RAU/ODU-Telecom",
+      "Restart-Telecom",
+      "RF Cable Connections-Telecom",
+      "Self Cleared-Telecom",
+      "SFP Fault-Telecom",
+      "Software-Telecom",
+      "Telecom",
+      "Telecom Cables",
+      "Telecom Issue",
+      "XPIC-telecom"
+    ],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": false,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      },
+      {
+        "field": "Root Cause Details",
+        "exclude": true,
+        "values": [
+          "3rd Party Fault-Telecom",
+          "ACES Telecom",
+          "Antenna Fault-Telecom",
+          "Auto-restored-Telecom",
+          "bad weather",
+          "BBU Cable Connections-Telecom",
+          "BTS SW-Telecom",
+          "Cell Configuration-Telecom",
+          "Configuration-Telecom",
+          "Dispute-Telecom",
+          "DUG-Telecom",
+          "Duplicate Ticket",
+          "Fiber Cable-telecom",
+          "GPS Antenna-Telecom",
+          "Hardware-Telecom",
+          "Heavy Rain",
+          "High Wind",
+          "High Wind-Telecom",
+          "IDU Fault-Telecom",
+          "IF Connector-Telecom",
+          "Interface Card Fault-Telecom",
+          "Interference",
+          "Jumper Cables-Telecom",
+          "Link Issue",
+          "Link Issue - Telecom",
+          "Link-Telecom",
+          "MCU - Configuration",
+          "MDT",
+          "Modem Fault-Telecom",
+          "MRFU-Telecom",
+          "MW-Telecom",
+          "New Implementation-Telecom",
+          "New Integration-Telecom",
+          "No issue-Telecom",
+          "NRF-Telecom",
+          "O&M Activity-Telecom",
+          "Others-Telecom",
+          "PMR",
+          "Port Reset-Telecom",
+          "PSU-Telecom",
+          "RAU/ODU-Telecom",
+          "Restart-Telecom",
+          "RF Cable Connections-Telecom",
+          "Self Cleared-Telecom",
+          "SFP Fault-Telecom",
+          "Software-Telecom",
+          "Telecom",
+          "Telecom Cables",
+          "Telecom Issue",
+          "XPIC-telecom"
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [
+          {
+            "field": "Root Cause Details",
+            "exclude": true,
+            "values": [
+              "Access issue",
+              "Access issue Aramco Fadhili",
+              "Access issue located MDL Beast 2025",
+              "Battery",
+              "Empty Fuel Tank",
+              "High Temperature",
+              "HVAC panel hanged",
+              "Power",
+              "Vandalism",
+              "3rd Party Fault-Telecom",
+              "Power - Generator",
+              "Air Conditioning",
+              "ATS1  - Mechanical Problem",
+              "ATS1 - Electrical Problem",
+              "Batteries theft",
+              "BBU Cable Connections",
+              "breaker",
+              "Circuit Breaker",
+              "Circuit Breaker defective",
+              "Circuit Breaker Issue",
+              "Door - Sensor",
+              "Fuel Tank - Diesel Empty",
+              "Low Fuel Tank",
+              "MCB Trip / Switched Off / Defective",
+              "MDB1 -Branch CB Tripped",
+              "Port Reset",
+              "Power - Breaker",
+              "Power - Power fluctuation",
+              "Power - Rectifier",
+              "Power Cable",
+              "Rectifier",
+              "Restart",
+              "SCECO Failure - Area",
+              "PMR",
+              "3rd Party Fault"
+            ]
+          }
+        ],
+        "group_rules": [
+          {
+            "period": 0,
+            "kind": 0,
+            "value": 0,
+            "not": true
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": null,
+        "notes": [
+          "Legacy filter EId Al-Fitr 25 is recorded in the audit, not applied to rolling comparisons."
+        ]
+      },
+      "site_label": {
+        "row_rules": [
+          {
+            "field": "Site Label",
+            "exclude": true,
+            "contains": "na"
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      }
+    }
+  },
+  "wow-y": {
+    "id": "wow-y",
+    "name": "WOW Y",
+    "impact_mode": "SA",
+    "parent_blank": true,
+    "excluded_root_causes": [
+      "3rd Party Fault",
+      "3rd Party Fault-Telecom",
+      "ACES Telecom",
+      "Antenna Fault-Telecom",
+      "Auto-restored",
+      "Auto-restored-Telecom",
+      "bad weather",
+      "BBU Cable Connections-Telecom",
+      "BTS SW-Telecom",
+      "Cell Configuration-Telecom",
+      "Configuration-Telecom",
+      "Dispute",
+      "Dispute-Telecom",
+      "DUG-Telecom",
+      "Duplicate Ticket",
+      "Fiber Cable-telecom",
+      "GPS Antenna-Telecom",
+      "Hardware-Telecom",
+      "Heavy Rain",
+      "High Wind",
+      "High Wind-Telecom",
+      "IDU Fault-Telecom",
+      "IF Connector-Telecom",
+      "Interface Card Fault-Telecom",
+      "Interference",
+      "Jumper Cables-Telecom",
+      "Link Issue",
+      "Link Issue - Telecom",
+      "Link-Telecom",
+      "MCU - Configuration",
+      "MDT",
+      "Modem Fault-Telecom",
+      "MRFU-Telecom",
+      "MW-Telecom",
+      "New Implementation-Telecom",
+      "New Integration-Telecom",
+      "No issue-Telecom",
+      "NRF-Telecom",
+      "O&M Activity-Telecom",
+      "Others",
+      "Others-Telecom",
+      "PMR",
+      "Port Reset-Telecom",
+      "PSU-Telecom",
+      "RAU/ODU-Telecom",
+      "Restart-Telecom",
+      "RF Cable Connections-Telecom",
+      "RRU Connector",
+      "Self Cleared-Telecom",
+      "SFP Fault-Telecom",
+      "Software-Telecom",
+      "Telecom",
+      "Telecom Cables",
+      "XPIC-telecom"
+    ],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": false,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      },
+      {
+        "field": "Root Cause Details",
+        "exclude": true,
+        "values": [
+          "3rd Party Fault",
+          "3rd Party Fault-Telecom",
+          "ACES Telecom",
+          "Antenna Fault-Telecom",
+          "Auto-restored",
+          "Auto-restored-Telecom",
+          "bad weather",
+          "BBU Cable Connections-Telecom",
+          "BTS SW-Telecom",
+          "Cell Configuration-Telecom",
+          "Configuration-Telecom",
+          "Dispute",
+          "Dispute-Telecom",
+          "DUG-Telecom",
+          "Duplicate Ticket",
+          "Fiber Cable-telecom",
+          "GPS Antenna-Telecom",
+          "Hardware-Telecom",
+          "Heavy Rain",
+          "High Wind",
+          "High Wind-Telecom",
+          "IDU Fault-Telecom",
+          "IF Connector-Telecom",
+          "Interface Card Fault-Telecom",
+          "Interference",
+          "Jumper Cables-Telecom",
+          "Link Issue",
+          "Link Issue - Telecom",
+          "Link-Telecom",
+          "MCU - Configuration",
+          "MDT",
+          "Modem Fault-Telecom",
+          "MRFU-Telecom",
+          "MW-Telecom",
+          "New Implementation-Telecom",
+          "New Integration-Telecom",
+          "No issue-Telecom",
+          "NRF-Telecom",
+          "O&M Activity-Telecom",
+          "Others",
+          "Others-Telecom",
+          "PMR",
+          "Port Reset-Telecom",
+          "PSU-Telecom",
+          "RAU/ODU-Telecom",
+          "Restart-Telecom",
+          "RF Cable Connections-Telecom",
+          "RRU Connector",
+          "Self Cleared-Telecom",
+          "SFP Fault-Telecom",
+          "Software-Telecom",
+          "Telecom",
+          "Telecom Cables",
+          "XPIC-telecom"
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": 10,
+        "notes": [
+          "Top 10 by tickets across the loaded source, under the page criteria."
+        ]
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": null,
+        "notes": [
+          "Legacy filter EId Al-Fitr 25 is recorded in the audit, not applied to rolling comparisons."
+        ]
+      },
+      "site_label": {
+        "row_rules": [
+          {
+            "field": "Site Label",
+            "exclude": true,
+            "contains": "na"
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "severity": {
+        "row_rules": [],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      }
+    }
+  },
+  "yoy": {
+    "id": "yoy",
+    "name": "YoY",
+    "impact_mode": "SA",
+    "parent_blank": true,
+    "excluded_root_causes": [
+      "3rd Party Fault-Telecom",
+      "ACES Telecom",
+      "Antenna Fault-Telecom",
+      "Auto-restored",
+      "Auto-restored-Telecom",
+      "bad weather",
+      "BBU Cable Connections-Telecom",
+      "BTS SW-Telecom",
+      "Cell Configuration-Telecom",
+      "Configuration-Telecom",
+      "Dispute-Telecom",
+      "DUG-Telecom",
+      "Duplicate Ticket",
+      "Fiber Cable-telecom",
+      "GPS Antenna-Telecom",
+      "Hardware-Telecom",
+      "Heavy Rain",
+      "High Wind",
+      "High Wind-Telecom",
+      "IDU Fault-Telecom",
+      "IF Connector-Telecom",
+      "Interface Card Fault-Telecom",
+      "Interference",
+      "Jumper Cables-Telecom",
+      "Link Issue",
+      "Link Issue - Telecom",
+      "Link-Telecom",
+      "MCU - Configuration",
+      "MDT",
+      "Modem Fault-Telecom",
+      "MRFU-Telecom",
+      "MW-Telecom",
+      "New Implementation-Telecom",
+      "New Integration-Telecom",
+      "No issue-Telecom",
+      "NRF-Telecom",
+      "O&M Activity-Telecom",
+      "Others",
+      "Others-Telecom",
+      "PMR",
+      "Port Reset-Telecom",
+      "PSU-Telecom",
+      "RAU/ODU-Telecom",
+      "Restart-Telecom",
+      "RF Cable Connections-Telecom",
+      "RRU Connector",
+      "Self Cleared-Telecom",
+      "SFP Fault-Telecom",
+      "Software-Telecom",
+      "Telecom",
+      "Telecom Cables",
+      "Telecom Issue",
+      "XPIC-telecom",
+      "Antenna System",
+      "Bad Weather",
+      "Configuration",
+      "Fiber Cable",
+      "IF Card Fault",
+      "Link Flap",
+      "MW LOS",
+      "New Integration",
+      "PMR related",
+      "Re-Alignment",
+      "SFP Fault",
+      "Software",
+      "Antenna",
+      "Antenna Fault",
+      "BTS SW",
+      "CABLE",
+      "Cell Configuration",
+      "Cleaned",
+      "Cleanup of Files/Drive/Disk",
+      "Connection Failure",
+      "Contactor failure",
+      "Design Issue - Cable / Breaker Under Sized",
+      "Display unit defective",
+      "DUG",
+      "DUS",
+      "E1 Cable",
+      "Ethernet Cable",
+      "GPS Antenna",
+      "IDU Fault",
+      "IF Connector",
+      "Interface Card Fault",
+      "Jumper Cables",
+      "Link Configuration",
+      "Link/Interface Down",
+      "Modem Fault",
+      "MRFU",
+      "MW Back Plane",
+      "MW Fading",
+      "MW Restart",
+      "MW-ODU",
+      "New Implementation",
+      "No issue",
+      "NRF",
+      "Port Reset",
+      "PSU",
+      "RAU/ODU",
+      "RF Cable Connections",
+      "Telecom Sync. issue- Ping pong with Ericsson team",
+      "TX Board",
+      "Upgrade",
+      "XPIC",
+      "Weather Issue",
+      "LOS"
+    ],
+    "rules": [
+      {
+        "field": "Service Impacted",
+        "exclude": false,
+        "values": [
+          "Outage"
+        ]
+      },
+      {
+        "field": "Parent TT",
+        "exclude": false,
+        "values": [
+          null
+        ]
+      },
+      {
+        "field": "Root Cause Details",
+        "exclude": true,
+        "values": [
+          "3rd Party Fault-Telecom",
+          "ACES Telecom",
+          "Antenna Fault-Telecom",
+          "Auto-restored",
+          "Auto-restored-Telecom",
+          "bad weather",
+          "BBU Cable Connections-Telecom",
+          "BTS SW-Telecom",
+          "Cell Configuration-Telecom",
+          "Configuration-Telecom",
+          "Dispute-Telecom",
+          "DUG-Telecom",
+          "Duplicate Ticket",
+          "Fiber Cable-telecom",
+          "GPS Antenna-Telecom",
+          "Hardware-Telecom",
+          "Heavy Rain",
+          "High Wind",
+          "High Wind-Telecom",
+          "IDU Fault-Telecom",
+          "IF Connector-Telecom",
+          "Interface Card Fault-Telecom",
+          "Interference",
+          "Jumper Cables-Telecom",
+          "Link Issue",
+          "Link Issue - Telecom",
+          "Link-Telecom",
+          "MCU - Configuration",
+          "MDT",
+          "Modem Fault-Telecom",
+          "MRFU-Telecom",
+          "MW-Telecom",
+          "New Implementation-Telecom",
+          "New Integration-Telecom",
+          "No issue-Telecom",
+          "NRF-Telecom",
+          "O&M Activity-Telecom",
+          "Others",
+          "Others-Telecom",
+          "PMR",
+          "Port Reset-Telecom",
+          "PSU-Telecom",
+          "RAU/ODU-Telecom",
+          "Restart-Telecom",
+          "RF Cable Connections-Telecom",
+          "RRU Connector",
+          "Self Cleared-Telecom",
+          "SFP Fault-Telecom",
+          "Software-Telecom",
+          "Telecom",
+          "Telecom Cables",
+          "Telecom Issue",
+          "XPIC-telecom",
+          "Antenna System",
+          "Bad Weather",
+          "Configuration",
+          "Fiber Cable",
+          "IF Card Fault",
+          "Link Flap",
+          "MW LOS",
+          "New Integration",
+          "PMR related",
+          "Re-Alignment",
+          "SFP Fault",
+          "Software",
+          "Antenna",
+          "Antenna Fault",
+          "BTS SW",
+          "CABLE",
+          "Cell Configuration",
+          "Cleaned",
+          "Cleanup of Files/Drive/Disk",
+          "Connection Failure",
+          "Contactor failure",
+          "Design Issue - Cable / Breaker Under Sized",
+          "Display unit defective",
+          "DUG",
+          "DUS",
+          "E1 Cable",
+          "Ethernet Cable",
+          "GPS Antenna",
+          "IDU Fault",
+          "IF Connector",
+          "Interface Card Fault",
+          "Jumper Cables",
+          "Link Configuration",
+          "Link/Interface Down",
+          "Modem Fault",
+          "MRFU",
+          "MW Back Plane",
+          "MW Fading",
+          "MW Restart",
+          "MW-ODU",
+          "New Implementation",
+          "No issue",
+          "NRF",
+          "Port Reset",
+          "PSU",
+          "RAU/ODU",
+          "RF Cable Connections",
+          "Telecom Sync. issue- Ping pong with Ericsson team",
+          "TX Board",
+          "Upgrade",
+          "XPIC",
+          "Weather Issue",
+          "LOS"
+        ]
+      }
+    ],
+    "visuals": {
+      "root_cause": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "district": {
+        "row_rules": [],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          },
+          {
+            "period": 0,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "site_label": {
+        "row_rules": [
+          {
+            "field": "Site Label",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [
+          {
+            "period": 1,
+            "kind": 1,
+            "value": 0,
+            "not": false
+          }
+        ],
+        "top_n": null,
+        "notes": []
+      },
+      "duration_bucket": {
+        "row_rules": [
+          {
+            "field": "Duration Criteria",
+            "exclude": true,
+            "values": [
+              null
+            ]
+          }
+        ],
+        "group_rules": [],
+        "top_n": null,
+        "notes": []
+      }
+    },
+    "source_page": "Monthly Overview (SA)"
+  }
+}

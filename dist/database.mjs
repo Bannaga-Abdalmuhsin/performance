@@ -32,26 +32,22 @@ export class PerformanceDatabase {
     if(r.status===204)return null;const t=await r.text();return t?JSON.parse(t):null;
   }
   async member(){const r=await this.request('/rest/v1/performance_members?select=role,active&user_id=eq.'+encodeURIComponent(this.session.user.id));if(!r.length||!r[0].active)throw new Error('Your account needs performance access. Ask the project administrator to add it to performance_members.');return r[0];}
+  async latest(){return (await this.request('/rest/v1/performance_imports?select=id,status,metadata,record_count,min_date,max_date,completed_at,source_name&status=eq.complete&order=completed_at.desc,id.desc&limit=1'))[0]||null;}
   async load(progress=()=>{}) {
     await this.member();
-    const latestPath='/rest/v1/performance_imports?select=*&order=imported_at.desc&limit=1';
-    const imports=await this.request(latestPath);
-    if(!imports.length)throw new Error('No performance import is available yet.');
-    if(imports[0].status!=='complete')throw new Error('The latest import is '+imports[0].status+'. Complete or retry that import before reviewing database results.');
-    const first=imports[0],page=1000,records=[];let cursor='';
-    // Keyset pagination remains stable and does not silently stop at the default
-    // API row limit. The full import must succeed before the UI swaps data.
+    const first=await this.latest();
+    if(!first||first.status!=='complete')throw new Error('No completed performance import is available yet.');
+    const page=1000,records=[];let cursor='';
+    // Every row is pinned to one immutable completed snapshot. A pending or
+    // failed upload cannot replace the last verified dashboard version.
     while(true){
-      const rows=await this.request('/rest/v1/performance_tickets?select='+FIELDS.join(',')+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
+      const rows=await this.request('/rest/v1/performance_tickets?select='+FIELDS.join(',')+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
       records.push(...rows);progress(records.length);
-      if(!rows.length)break;cursor=rows.at(-1).id;
+      if(!rows.length)break;const next=rows.at(-1).id;if(typeof next!=='string'||(cursor&&next<=cursor))throw new Error('Invalid database pagination cursor. No dashboard data was replaced.');cursor=next;
     }
-    const [latest]=await this.request(latestPath);
-    if(latest?.id!==first.id||latest?.status!=='complete')throw new Error('The source changed while loading. Reload once the latest import completes.');
-    const meta={...first.metadata,record_count:records.length};
+    if(records.length!==first.record_count)throw new Error('Snapshot count mismatch. No dashboard data was replaced.');
+    const meta={...first.metadata,record_count:records.length,min_date:first.min_date,max_date:first.max_date,import_id:first.id,completed_at:first.completed_at};
     if(!records.length)throw new Error('The completed import returned no visible tickets. Check database access.');
-    meta.min_date=records.reduce((m,r)=>r.created_date<m?r.created_date:m,records[0].created_date);
-    meta.max_date=records.reduce((m,r)=>r.created_date>m?r.created_date:m,records[0].created_date);
     return {meta,records};
   }
   async import(records,meta,progress=()=>{}) {
@@ -59,9 +55,9 @@ export class PerformanceDatabase {
     const [batch]=await this.request('/rest/v1/performance_imports',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify({source_name:meta.source_workbook||'Performance upload',source_sha256:meta.source_sha256||null,metadata:meta,min_date:meta.min_date,max_date:meta.max_date,record_count:records.length,status:'pending'})});
     try {
       for(let i=0;i<records.length;i+=500){const chunk=records.slice(i,i+500).map(r=>({...Object.fromEntries(FIELDS.map(k=>[k,r[k]??null])),sla_excluded:!!r.sla_excluded,quality_flags:r.quality_flags||[],import_id:batch.id,updated_at:new Date().toISOString()}));
-        await this.request('/rest/v1/performance_tickets?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(chunk)});progress(Math.min(i+500,records.length),records.length);}
+        await this.request('/rest/v1/performance_tickets?on_conflict=import_id,id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(chunk)});progress(Math.min(i+500,records.length),records.length);}
       await this.request('/rest/v1/rpc/performance_complete_import',{method:'POST',body:JSON.stringify({batch_id:batch.id,expected_count:records.length})});
-    }catch(error){try{await this.request('/rest/v1/performance_imports?id=eq.'+batch.id,{method:'PATCH',body:JSON.stringify({status:'failed'})});}catch{}throw new Error('Import did not complete. Some rows may have been upserted; retry the same file to finish. '+error.message);}
+    }catch(error){try{await this.request('/rest/v1/performance_imports?id=eq.'+batch.id,{method:'PATCH',body:JSON.stringify({status:'failed'})});}catch{}throw new Error('Import did not complete. The previous complete snapshot is still live. Retry the file as a new batch. '+error.message);}
     return batch.id;
   }
   async getReview(key){return (await this.request('/rest/v1/performance_reviews?select=*&review_key=eq.'+encodeURIComponent(key)))[0]||null;}

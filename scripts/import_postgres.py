@@ -39,7 +39,7 @@ def main(path):
     try:
         for i in range(0,len(records),500):
             chunk=[{**r,'import_id':batch['id']} for r in records[i:i+500]]
-            request('/rest/v1/performance_tickets?on_conflict=id','POST',chunk,'resolution=merge-duplicates,return=minimal')
+            request('/rest/v1/performance_tickets?on_conflict=import_id,id','POST',chunk,'resolution=merge-duplicates,return=minimal')
             print(f'Imported {min(i+500,len(records)):,} / {len(records):,}',flush=True)
         actual=request('/rest/v1/rpc/performance_complete_import','POST',{'batch_id':batch['id'],'expected_count':len(records)})
         print(f'Complete. PostgreSQL verified {actual:,} records. Import: {batch["id"]}')

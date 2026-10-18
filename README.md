@@ -1,89 +1,81 @@
-# stc COW Performance Analysis — Use Case 04
+# stc COW performance · Use case 04
 
-A monthly review website for COW passive infrastructure operations. It provides monthly and year-over-year comparisons, regional results, root causes, recurring sites, a sortable ticket register with source details, review commentary, CSV export, and a print layout for saving monthly reviews as PDF.
+A private operational review platform for ACES / stc COW performance, with six dashboards backed by completed cumulative Supabase snapshots.
 
-## Run
+| Dashboard | Comparison | Source criteria |
+|---|---|---|
+| Weekly Overview (SA) | Selected Sunday-based week vs previous two weeks | Weekly SA page |
+| Weekly Overview (NSA) | Selected week vs previous two weeks | Weekly NSA page: every impact except Outage |
+| Monthly Overview (SA) | Selected review month vs previous two months | Monthly SA page |
+| MoM Y | Same month across three years | MOM Y page |
+| WoW Y | Same week number across three years | WOW Y page |
+| YoY | Matching YTD coverage through the review month | New page using Monthly SA scope |
 
-The website has no build or package dependencies. Serve `dist/` with a static web server, for example:
+The public repository includes a pointer to the full formula audit in the private hosted workspace. Run the extractor for a separate private deployment; the original report metadata and decoded baseline are distributed only with the private Site.\n\nThe original PBIX contains five pages. `dist/formula-audit.json` records every page, visual query, visual filter, all 123 DAX measures, 88 calculated columns (15 business columns and 73 automatic date columns), 13 calculated tables and two Power Query expressions. Source folder paths are redacted. All raw operational rows stay outside the public GitHub repository.
 
-```bash
-python -m http.server 8000 --directory dist
+## Criteria and model findings
+
+Volume follows the decoded DAX `0 + COUNTROWS('Outages & power')`. It does not count distinct tickets. Distinct ticket numbers are displayed separately. Restoration minutes equal `RestorationTime HHMMSS * 1440`; hours equal minutes / 60. Missing and zero durations remain distinguishable. Duration bands follow the original thresholds: `<2hrs`, `02-04hrs`, `04-08hrs`, `08-24hrs`, and `>24hrs` (the last band includes exactly 1440 minutes).
+
+Each page keeps its own service-impact, blank Parent TT and root-cause rules. Comparison tables also retain the saved category exclusions, count thresholds and WoW Y top-10 root-cause filter. The top-10 ranks tickets across the loaded source under the page criteria, matching the saved filter. KPI totals and the ticket register retain the complete page scope.
+
+The Power Query deduplication key concatenates Ticket Number, Severity, SiteID and District. Raw CSV/XLSB ingestion keeps the first occurrence deterministically. The decoded PBIX itself contains one repeated key with two different rows; extraction preserves both with stable variant suffixes and flags the anomaly.
+
+The saved model has no relationships. Some original formulas also subtract an unexplained four tickets, select an entire prior year at week 1/January, omit August 31, or use week 12 for volume and week 22 for duration. Live comparisons explicitly filter Create Date, use the selected periods with correct year boundaries, include the full selected month, and show observed row counts without the fixed subtraction. The original expressions remain available in **Formulas & criteria**, alongside each difference. Historical Eid filters and frozen slicer dates are audited rather than carried into future periods.
+
+Weeks implement DAX `WEEKNUM(Date,1)`: Sunday starts, January 1 belongs to week 1, and weeks at year boundaries may be short. MoM Y aligns days when the uploaded month is partial; YoY aligns YTD cutoff dates, including leap-year boundaries. Other partial periods are labelled. Outside-coverage periods have no comparison. Change is `(current - previous) / previous * 100`; a positive current against zero shows +100%, both zero shows 0%, following the report's weekly rule.
+
+The source's `Exceed SLA` Yes/No and explicit SLA exemption determine the separately labelled source SLA compliance. The original “Outperform SLA %” visuals actually reference ticket-change measures. Stored `Duration dax (Min)`, `SLA OUTAGES` and `SLA POWER` have no values in this PBIX. Their expressions are preserved in the audit. Network availability requires historical on-air inventory and is not inferred from ticket counts.
+
+## Upload future cumulative data
+
+1. Sign in under **Data & settings** with an existing Supabase Auth account approved in `performance_members`. The private hosted site has the project URL and publishable key configured. Public source distributions ask the user to supply the publishable key. Secret/service-role keys are rejected.
+2. Upload the **complete cumulative file** as CSV, JSON or JSON.GZ. Original source CSV headers or canonical database column names are accepted. Review rejected rows and duplicate counts, then save to PostgreSQL.
+3. The uploader creates a pending import, writes its rows, then calls `performance_complete_import(batch_id, expected_count)`. PostgreSQL validates the count and publishes the snapshot atomically. Pending/failed uploads leave the previous completed snapshot live.
+4. Every visible connected dashboard checks for a newer completed snapshot every 30 seconds and on returning to the tab. A new snapshot refreshes all six views. Filters are preserved; the default latest-period selection advances when newer coverage arrives.
+
+Completed snapshots are immutable. Corrections require a new cumulative upload. Older snapshots remain available in Supabase for audit. This is cumulative replacement, not an incremental append feed. Each dataset load is pinned to one import ID and checks its expected row count before replacing the UI state.
+
+### Prepare PBIX or XLSB
+
+For PBIX, install the optional parser in your own Python environment and extract locally:
+
+```sh
+python -m pip install -r requirements-pbix.txt
+python scripts/extract_powerbi.py /private/report.pbix /private/output
 ```
 
-Open `http://localhost:8000`. The public repository contains application code and a report filter profile. It contains **no operational ticket data, source workbook, PBIX file, passwords, or secret keys**.
+For the original XLSB layout, the included standard-library reader requires no extra packages:
 
-## PostgreSQL project
-
-The configured project is `https://vtsqazxhszbmwiswthgt.supabase.co`.
-
-1. Apply `database/001_performance.sql` in the project's SQL editor. It creates only tables and functions beginning with `performance_`. Review the migration before applying it to an existing project.
-2. Use an existing approved Supabase Auth account, or create an account in the project's Auth administration. There is no public registration in this app.
-3. Grant the account a performance role with the bootstrap SQL at the end of the migration. Roles are `admin`, `analyst`, and `viewer`. Membership administration stays in the project SQL editor.
-4. Open **Data & settings** on the website. Enter the project's publishable key (or legacy anon key) and sign in with the approved account. The client rejects service-role and secret keys. Public configuration is saved on the current browser; Auth tokens stay in session storage.
-5. Upload and preview the prepared data file, then choose **Save to PostgreSQL**. The first complete import is required before database results can load. Administrators and analysts can import and save shared monthly reviews; viewers can read.
-6. Run `database/verify_access.sql` and test a viewer and an analyst account in the deployed application. Local unit tests use a mocked database and do not prove deployed RLS behavior.
-
-Alternatively, set the client **publishable** key in `dist/config.js` for shared deployment. Leave all secret keys out of browser code, source control, and chat. `privateSnapshot` must remain `null` on public deployments.
-
-## Prepare the supplied data
-
-The conversion uses Python's standard library and does not alter either source file:
-
-```bash
-python scripts/extract_data.py \
-  "/private/Accumulative Outages Power report.xlsb" \
-  "/private/Weekly Overview V3.pbix" \
-  "/private/performance-output"
+```sh
+python scripts/extract_data.py /private/source.xlsb /private/report.pbix /private/output
 ```
 
-It reads `SIR - ACES NOC.` from the XLSB and reads the monthly filter profile from the PBIX report layout. It produces a compressed JSON import, normalized CSV and NDJSON, source metadata, and a duplicate resolution log. Keep these outputs private. **Do not commit them to this public repository.**
+Both produce `performance-data.json.gz` and `performance-tickets.csv`. PBIX extraction uses the stored model values and includes the full formula audit. XLSB extraction uses the workbook values; their precision and row coverage can differ from the PBIX. Two-digit-year dates exported by this PBIX are US month-first; original four-digit-year dates are day-first. Source dates are interpreted explicitly in Asia/Riyadh, not the browser's timezone.
 
-Import the JSON.GZ file through the website, or use the terminal importer:
+To upload the prepared dataset without the web interface:
 
-```bash
-python scripts/import_postgres.py /private/performance-output/performance-data.json.gz
+```sh
+python scripts/import_postgres.py /private/output/performance-data.json.gz
 ```
 
-The importer prompts for the client key, email and password. It does not put credentials in command-line arguments or write them to disk.
+The CLI prompts for an approved account and publishable key; credentials are never written to source files. For direct SQL/Table Editor imports, first create a pending `performance_imports` row, include its `import_id` on every CSV row, and call `performance_complete_import` with the expected count after all rows have been uploaded. Direct edits to completed data are rejected.
 
-For recurring updates, replace the source export and run the same conversion and import. No automatic connection to RTTS or Power BI refresh is configured. The XLSB reader supports the record types present in the supplied workbook; compare the exported row counts after converting a different workbook.
+## Database and access
 
-## Calculation basis
+Apply `database/001_performance.sql` followed by `database/002_powerbi_versions.sql` in order. They only affect the `performance_*` objects and retain existing unrelated project data. The migrations were applied to the supplied project. RLS controls every exposed performance table. Anonymous users have no performance-table grants. Viewers read completed snapshots; analysts/admins publish new ones. Browser users cannot assign membership or delete records.
 
-| Item | Definition |
-| --- | --- |
-| Reporting period | Month of Create Date, interpreted in Asia/Riyadh. A ticket stays in its creation month even if it clears in another month. |
-| Default scope | Outage service impact, blank Parent TT, and the explicit exclusions from the PBIX Monthly Overview (SA) page. |
-| All recorded faults | Removes parent and root cause exclusions; retains the visible impact and other filters. |
-| Ticket volume | Distinct ticket numbers. Stored grain is ticket/site. Regional distinct counts may overlap if a future source links one ticket to multiple sites. |
-| Duplicate snapshots | Retain the most complete row; break ties by latest cleared timestamp, then earliest source row. |
-| Restoration hours | Sum of recorded RestorationTime HHMMSS multiplied by 24. Source Excel duration values are fractions of a day. |
-| Mean restoration | Total recorded minutes / number of records with a valid duration. Missing durations are excluded; zero is retained. |
-| SLA compliance | Non-breached / eligible records. Eligibility needs an explicit Exceed SLA Yes/No and no Exclude/Excluded SLA marker. Source SLA decisions are retained. |
-| Service interruption | Sum of nonnegative Service Impact Finish − Start intervals. Overlapping ticket intervals are not merged. |
-| Recurring sites | Sites with at least two tickets in the selected month and scope. |
-| Comparisons | Same filters in the previous calendar month or same month of the prior year. No growth rate is reported against zero or missing coverage. |
+An administrator must map the intended existing Auth account to `performance_members`; no account identity is guessed. The bootstrap statement is at the end of migration 001. No permanent membership was assigned during extraction. The native site remains owner-private, and its protected snapshot allows the owner to review the decoded baseline while database access is configured.
 
-The app preserves source date inconsistencies and exposes them in source checks and ticket details. Recorded durations are not silently replaced with a recalculated interval. Network availability is not calculated because a historical on-air inventory denominator was not provided.
+## Validation and source handling
 
-**PBIX limitation:** the report layout, field references and monthly filter list were inspected. Compressed VertiPaq table rows and DAX expressions were not decoded. The actual records are extracted from the supplied workbook. Exact parity with the PBIX measure `New Duration Dax Min` has not been established.
-
-## Access and data protection
-
-- All four performance tables have RLS enabled. Anonymous roles receive no table privileges.
-- Approved members can read; analysts and administrators can import and write reviews. Browser clients cannot grant their own membership or delete records.
-- Imports upsert a stable ticket/site ID and record the source hash, source date range and import state. Failed or pending imports block database result loading; a count check is required before completion. Retry the same file after a failed import. A failed import can have written some batches, so it is not advertised as atomic.
-- Database loading follows stable keyset pagination and rechecks import state before exposing results. It does not accept the API's default first page as the whole dataset.
-- The private review deployment can contain an owner-restricted source snapshot. That snapshot is a separate private deployment asset and is excluded from the public GitHub commit. It is clearly labeled in the interface until PostgreSQL synchronization is active.
-- Review notes made in snapshot mode remain on that browser. Shared PostgreSQL reviews use the selected month and filter scope as their key.
-
-## Validation
-
-```bash
+```sh
 npm run check
 npm test
 ```
 
-Tests cover calculation denominators, scope exclusions, calendar boundaries, source-column imports, duplicate handling, CSV escaping, all six view renderers, site drill-downs, key rejection, database pagination, and failed imports. They do not replace a visual browser check or a live project RLS check.
+The project has no JavaScript dependencies or build step. Tests cover all six report modes, period/year/leap boundaries, page and visual criteria, duration bands, zero/missing values, raw CSV normalization, escaping, immutable snapshot selection, import failure/count handling, and all UI renderers in a minimal DOM harness.
 
-References: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [API keys](https://supabase.com/docs/guides/getting-started/api-keys).
+The decoded source was reconciled to the JavaScript engine and PostgreSQL across 870 weekly/monthly page-scope aggregates. Record IDs, dates, duration counts and totals were also checked. Database role tests verified viewer read restrictions, analyst publication, count validation, immutable completed snapshots, server-side duration conversion and Riyadh dates, then rolled back. These are functional/data checks; a full browser layout and live user sign-in session have not been tested in this environment.
+
+`dist/private-snapshot.json.gz` exists only in the owner-private native Site source. It must never be pushed to the public GitHub repository or GitHub Pages. The public `dist/config.js` must have `privateSnapshot: null` and no embedded project key. Raw files, extracted records, temporary payloads and import containers must remain outside public source control.
