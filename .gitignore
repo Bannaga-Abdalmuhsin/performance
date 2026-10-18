@@ -4,10 +4,11 @@ node_modules/
 !.env.example
 data/
 private/
-dist/snapshot.json
 *.pbix
 *.xlsb
 *.csv
 *.ndjson
+__pycache__/
 .DS_Store
+dist/private-snapshot*
 .openai/

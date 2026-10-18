@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
+  <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
+  <title>stc COW · Performance review</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script><script type="module" src="app.mjs"></script>
+</head>
+<body>
+<a href="#main" class="skip">Skip to performance analysis</a>
+<aside class="sidebar" id="sidebar">
+  <a class="brand" href="#overview" aria-label="stc COW performance home"><span class="stc">stc</span><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></a>
+  <div class="workspace"><span class="workspace-icon" data-icon="activity"></span><div>Performance analysis<small>USE CASE 04</small></div></div>
+  <div class="nav-label">WORKSPACE</div>
+  <nav aria-label="Main navigation">
+    <button class="nav-item active" data-view="overview"><span data-icon="layout"></span>Monthly overview</button>
+    <button class="nav-item" data-view="causes"><span data-icon="layers"></span>Root cause analysis</button>
+    <button class="nav-item" data-view="sites"><span data-icon="tower"></span>Site performance</button>
+    <button class="nav-item" data-view="tickets"><span data-icon="ticket"></span>Ticket register<span class="nav-count" id="nav-count">—</span></button>
+    <button class="nav-item" data-view="review"><span data-icon="note"></span>Monthly review</button>
+  </nav>
+  <div class="sidebar-bottom">
+    <button class="nav-item" data-view="settings"><span data-icon="settings"></span>Data & settings</button>
+    <div class="sidebar-source"><i id="sidebar-dot"></i><span id="sidebar-source">Loading source…</span></div>
+    <div class="powered">Powered by <b>ACES</b><small>Advanced Communication & Electronic Systems</small></div>
+  </div>
+</aside>
+<div class="app-shell">
+  <header class="topbar"><div class="breadcrumbs"><button class="icon-button mobile-only" id="menu-toggle" aria-label="Toggle navigation" data-icon="menu"></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">MONTHLY REVIEW</span><button class="account" id="account-button" title="Database connection"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
+  <main id="main" tabindex="-1">
+    <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button secondary" id="export-csv"><span data-icon="download"></span>Export data</button><button class="button primary" id="print-review"><span data-icon="file"></span>Review PDF</button></div></div>
+    <div class="source-notice" id="source-notice" role="status"><span class="spinner"></span>Reading performance data…</div>
+    <section class="filters" aria-label="Performance filters">
+      <label class="filter-field period-field"><span data-icon="calendar"></span><span class="filter-label">Review month<input id="period-filter" type="month" aria-label="Review month"></span></label>
+      <label class="filter-field"><span class="filter-label">Region<select id="region-filter"><option value="all">All regions</option></select></span></label>
+      <label class="filter-field"><span class="filter-label">District<select id="district-filter"><option value="all">All districts</option></select></span></label>
+      <label class="filter-field"><span class="filter-label">Service impact<select id="impact-filter"><option value="Outage">Outage (SA)</option><option value="No impact">No impact (NSA)</option><option value="Degraded">Degraded</option><option value="all">All impacts</option></select></span></label>
+      <label class="filter-field scope-field"><span class="filter-label">Analysis scope<select id="scope-filter"><option value="powerbi">Power BI monthly</option><option value="all">All recorded faults</option></select></span></label>
+      <button class="filter-more" id="more-filters" aria-expanded="false"><span data-icon="filter"></span><span>More</span></button>
+    </section>
+    <section class="extra-filters" id="extra-filters" hidden>
+      <label>Vendor<select id="vendor-filter"><option value="all">All vendors</option></select></label>
+      <label>Severity<select id="severity-filter"><option value="all">All severities</option></select></label>
+      <label>Site priority<select id="label-filter"><option value="all">All priorities</option></select></label>
+      <label>Root cause<select id="cause-filter"><option value="all">All causes</option></select></label>
+      <button class="button secondary" id="reset-filters">Reset filters</button>
+    </section>
+    <div class="scope-caption"><span id="scope-description">Primary outage tickets with the monthly report’s root cause exclusions.</span><button class="text-button" id="method-button">Calculation notes<span data-icon="info"></span></button></div>
+    <div id="content" aria-live="polite"><div class="loading-card"><span class="spinner"></span><p>Preparing your monthly overview</p></div></div>
+    <footer class="page-footer"><span>stc COW Operations · Performance analysis</span><span id="footer-source"></span></footer>
+  </main>
+</div>
+<dialog id="detail-dialog" class="detail-dialog"><div class="dialog-header"><span class="eyebrow">TICKET DETAILS</span><button class="icon-button close-dialog" aria-label="Close ticket details" data-icon="close"></button></div><div id="detail-content"></div></dialog>
+<dialog id="method-dialog" class="method-dialog"><div class="dialog-header"><h2>Calculation notes</h2><button class="icon-button close-dialog" aria-label="Close calculation notes" data-icon="close"></button></div><div class="prose">
+  <h3>Reporting period and scope</h3><p>Tickets belong to the month of their Create Date in Saudi Arabia time (UTC+03:00). Previous-month and prior-year comparisons use the same filters. Months outside the source’s date range are unavailable.</p>
+  <p><b>Power BI monthly</b> uses the attached report’s Monthly Overview (SA) scope: blank Parent TT and its explicit root cause exclusions. Service impact remains selectable. <b>All recorded faults</b> removes the parent and root cause exclusions. Neither scope automatically excludes SLA exemptions from ticket volume.</p>
+  <h3>Volume, restoration and SLA</h3><p>Ticket volume counts distinct ticket numbers. A ticket/site pair is stored once; duplicate snapshots retain the most complete row, then the latest cleared date, then the earliest source row. Regional ticket counts can overlap if future files link one ticket to several sites.</p>
+  <p>Recorded restoration hours = sum of the workbook’s RestorationTime HHMMSS × 24. Mean restoration = total valid recorded minutes ÷ records with a recorded duration. Missing durations are excluded from these two measures and counted separately. Recorded zero durations remain zero.</p>
+  <p>SLA compliance = non-breached ÷ eligible records. Eligible records have an explicit Yes/No in Exceed SLA and are not marked Exclude/Excluded in the SLA column. Missing SLA outcomes are excluded. Source SLA decisions are preserved, including cases with historical date inconsistencies.</p>
+  <p>Service interruption hours use Service Impact Finish − Service Impact Start where both dates exist and the interval is nonnegative. These are ticket intervals; overlapping intervals are not merged and are not network availability. Availability requires a historical on-air inventory denominator, which was not supplied.</p>
+  <h3>Source limitations</h3><p>The PBIX report layout and monthly exclusion list were read. Its compressed VertiPaq data and DAX expressions were not decoded. The web page uses the supplied outage workbook, so exact equality with the PBIX measure New Duration Dax Min has not been established.</p><p>Source date inconsistencies and recorded durations that differ from create-to-clear time remain visible in the data checks. The original workbook is unchanged. No automatic refresh from RTTS or Power BI is configured.</p>
+</div></dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+</body></html>

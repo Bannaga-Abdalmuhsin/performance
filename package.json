@@ -1,0 +1,8 @@
+{
+  "name": "stc-cow-performance",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test tests/*.test.mjs", "check": "node --check dist/app.mjs && node --check dist/core.mjs && node --check dist/database.mjs"},
+  "description": "Use case 04: monthly COW performance analysis with authenticated PostgreSQL storage."
+}
