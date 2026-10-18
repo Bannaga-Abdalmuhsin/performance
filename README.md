@@ -1,6 +1,8 @@
 # stc COW performance · Use case 04
 
-A private operational review platform for ACES / stc COW performance, with six dashboards backed by completed cumulative Supabase snapshots.
+A private operational review platform for ACES / stc COW performance, with six chart dashboards backed by completed cumulative Supabase snapshots.
+
+The views follow the source Power BI chart families: clustered ticket columns with percentage lines, regional change lines, daily/monthly area trends, ticket-age funnels, change donuts, the weekly SA stacked monthly-duration chart, and horizontal NSA district/duration bars. YoY reuses the same chart language for matched YTD periods. Each chart supports category drill-down, exact data values, SVG download and an expanded view. Saved page and visual criteria continue to drive the chart data.
 
 | Dashboard | Comparison | Source criteria |
 |---|---|---|
@@ -11,7 +13,9 @@ A private operational review platform for ACES / stc COW performance, with six d
 | WoW Y | Same week number across three years | WOW Y page |
 | YoY | Matching YTD coverage through the review month | New page using Monthly SA scope |
 
-The public repository includes a pointer to the full formula audit in the private hosted workspace. Run the extractor for a separate private deployment; the original report metadata and decoded baseline are distributed only with the private Site.\n\nThe original PBIX contains five pages. `dist/formula-audit.json` records every page, visual query, visual filter, all 123 DAX measures, 88 calculated columns (15 business columns and 73 automatic date columns), 13 calculated tables and two Power Query expressions. Source folder paths are redacted. All raw operational rows stay outside the public GitHub repository.
+The public repository contains a pointer to the complete formula audit in the private hosted workspace. Original report metadata and decoded rows are distributed only with the private Site; run the extractor for a separate private deployment.
+
+The original PBIX contains five pages. `dist/formula-audit.json` records every page, visual query, visual filter, all 123 DAX measures, 88 calculated columns (15 business columns and 73 automatic date columns), 13 calculated tables and two Power Query expressions. Source folder paths are redacted. All raw operational rows stay outside the public GitHub repository.
 
 ## Criteria and model findings
 

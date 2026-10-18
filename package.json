@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.mjs && node --check dist/core.mjs && node --check dist/database.mjs && node --check dist/analysis.mjs && node --check dist/report.mjs"
+    "check": "node --check dist/app.mjs && node --check dist/core.mjs && node --check dist/database.mjs && node --check dist/analysis.mjs && node --check dist/report.mjs && node --check dist/charts.mjs"
   },
   "description": "Use case 04: monthly COW performance analysis with authenticated PostgreSQL storage."
 }

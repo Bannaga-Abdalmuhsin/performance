@@ -5,8 +5,8 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
-  <script src="config.js"></script><script type="module" src="app.mjs"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018charts">
+  <script src="config.js"></script><script type="module" src="app.mjs?v=20261018charts"></script>
 </head>
 <body>
 <a href="#main" class="skip">Skip to performance analysis</a>
@@ -73,5 +73,7 @@
   <h3>SLA and data refresh</h3><p>Source SLA compliance = non-breached ÷ eligible records. Eligibility requires a recorded Yes/No in Exceed SLA and no explicit SLA exclusion. This is labelled separately from the legacy calculated SLA columns, which have no stored values in this file. Network availability is not calculated without a historical on-air inventory denominator.</p>
   <p>A connected, approved Supabase account checks for a new completed cumulative snapshot every 30 seconds while this tab is visible. All six dashboards switch together after the row count is verified. Pending or failed uploads keep the previous complete snapshot live. The private Power BI baseline remains a static snapshot until you sign in to the database.</p>
 </div></dialog>
+<dialog id="chart-dialog" class="bi-chart-dialog"><div class="dialog-header"><span class="eyebrow">PERFORMANCE CHART</span><button class="icon-button close-dialog" aria-label="Close expanded chart" data-icon="close"></button></div><div id="chart-dialog-content"></div></dialog>
+<div id="chart-tooltip" class="bi-tooltip" role="tooltip" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
 </body></html>

@@ -1,7 +1,8 @@
 import {FIELDS,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor,exportCSV,parseCSV,normalizeRecords} from './core.mjs';
 import {PerformanceDatabase} from './database.mjs';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,reportProfile} from './analysis.mjs';
-import {renderReport,renderFormulaAudit} from './report.mjs';
+import {renderReport,renderFormulaAudit} from './report.mjs?v=20261018charts';
+import {createChartExport} from './charts.mjs';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -152,8 +153,10 @@ async function loadDatabase(){member=await db.member();$('#account-name').textCo
 async function connect(form){const button=form.querySelector('[type="submit"]');button.disabled=true;try{const url=$('#project-url').value.trim(),key=$('#project-key').value.trim();if(!db||db.url!==url||db.key!==key)db=new PerformanceDatabase(url,key);localStorage.setItem('performance-project-url',url);localStorage.setItem('performance-project-key',key);if(!db.session){await db.login($('#db-email').value.trim(),$('#db-password').value);$('#db-password').value='';}await loadDatabase();navigate('overview');toast('Performance data loaded from PostgreSQL.');}catch(err){toast(err.message);notice(`${icon('alert')}<span>${e(err.message)}${data?' The previously loaded source remains in view.':''}</span>`,'warn');}finally{button.disabled=false;}}
 async function saveImport(dataset){if(!db?.session)throw new Error('Sign in to PostgreSQL before importing.');notice(`<span class="spinner"></span><span>Saving performance records to PostgreSQL…</span>`);importBusy=true;try{await db.import(dataset.records,dataset.meta,(n,total)=>notice(`<span class="spinner"></span><span>Saving to PostgreSQL… ${number(n)} / ${number(total)}</span>`));pendingImport=null;await loadDatabase();navigate('overview');toast('The import is complete and every dashboard uses the verified snapshot.');}finally{importBusy=false;}}
 document.addEventListener('click',async(ev)=>{
-  const b=ev.target.closest('button,a');if(!b)return;
+  const b=ev.target.closest('button,a');if(!b)return;if(b.closest?.('.bi-chart-row,.bi-kpis,.bi-chart-dialog'))ev.preventDefault();
   try{
+    if(b.dataset.action==='chart-download'){const panel=b.closest('.bi-panel'),svg=panel?.querySelector('.bi-scroll > svg');if(svg){const keys=[...panel.querySelectorAll('.bi-legend>span')].map(el=>{const marker=el.querySelector('i');return {name:el.textContent.trim(),color:marker?.style.getPropertyValue('--legend-color')||marker?.style.backgroundColor||'#4f008c',line:marker?.classList.contains('line')};});download(createChartExport(svg.outerHTML,panel.querySelector('h2')?.textContent||'Performance chart',keys),'stc-COW-'+panel.dataset.chartId+'-'+state.period+'.svg','image/svg+xml;charset=utf-8');}return;}
+    if(b.dataset.action==='chart-expand'){const panel=b.closest('.bi-panel'),svg=panel?.querySelector('.bi-scroll > svg');if(svg){const heading=panel.querySelector('h2')?.textContent||'Performance chart',legend=panel.querySelector('.bi-legend')?.outerHTML||'';$('#chart-dialog-content').innerHTML=`<h2>${e(heading)}</h2>${legend}<div class="bi-scroll bi-expanded-scroll">${svg.outerHTML}</div>`;$('#chart-dialog').showModal();}return;}
     if(b.dataset.view){navigate(b.dataset.view);return;}if(b.dataset.go){navigate(b.dataset.go);return;}
     if(b.classList.contains('close-dialog')){b.closest('dialog').close();return;}
     if(b.dataset.ticket){showDetail(b.dataset.ticket);return;}
@@ -192,6 +195,12 @@ document.addEventListener('input',ev=>{
 document.addEventListener('change',async ev=>{if(ev.target.id==='import-file'&&ev.target.files[0]){try{await readImport(ev.target.files[0]);}catch(err){pendingImport=null;toast(err.message);$('#import-preview').textContent=err.message;$('#preview-import').disabled=true;$('#save-import').disabled=true;}}});
 document.addEventListener('submit',async ev=>{ev.preventDefault();if(ev.target.id==='connection-form'){await connect(ev.target);return;}if(ev.target.id==='review-form'){reviewDraft={commentary:$('#review-commentary').value,actions:$('#review-actions').value};reviewDirty=true;persistDraft();try{if(source==='database'){await db.saveReview({review_key:reviewKey(),period:state.period+'-01',scope:reviewScope(),...reviewDraft});$('#review-state').textContent='Saved in PostgreSQL';toast('Monthly review saved to PostgreSQL.');}else{$('#review-state').textContent='Saved on this browser';toast('Review saved on this browser.');}}catch(err){$('#review-state').textContent='Saved on this browser. Database save failed.';toast(err.message);}}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForUpdates();});
+function showChartTip(ev){const item=ev.target.closest?.('[data-tip]'),tip=$('#chart-tooltip');if(!item){tip.hidden=true;return;}tip.textContent=item.dataset.tip;tip.hidden=false;const rect=item.getBoundingClientRect?.(),x=ev.clientX??rect?.x??0,y=ev.clientY??rect?.y??0;tip.style.left=Math.max(10,Math.min(x+16,(window.innerWidth||1200)-320))+'px';tip.style.top=Math.max(10,Math.min(y+14,(window.innerHeight||900)-230))+'px';}
+document.addEventListener('pointermove',showChartTip);
+document.addEventListener('focusin',showChartTip);
+document.addEventListener('pointerout',ev=>{if(!ev.relatedTarget?.closest?.('[data-tip]'))$('#chart-tooltip').hidden=true;});
+document.addEventListener('focusout',()=>$('#chart-tooltip').hidden=true);
+document.addEventListener('click',()=>$('#chart-tooltip').hidden=true);
 window.addEventListener('beforeunload',persistDraft);
 async function startup(){
   fillIcons();$('#export-csv').disabled=true;$('#print-review').disabled=true;
