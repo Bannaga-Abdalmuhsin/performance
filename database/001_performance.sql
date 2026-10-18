@@ -10,8 +10,8 @@ create table if not exists public.performance_members (
 );
 
 create or replace function public.performance_has_role(roles text[])
-returns boolean language sql stable security definer set search_path = '' as $$
-  select exists(select 1 from public.performance_members m
+returns boolean language sql stable security invoker set search_path = '' as $$
+  select (select auth.uid()) is not null and exists(select 1 from public.performance_members m
     where m.user_id = (select auth.uid()) and m.active and m.role = any(roles));
 $$;
 revoke all on function public.performance_has_role(text[]) from public, anon;
@@ -29,6 +29,9 @@ create table if not exists public.performance_imports (
   imported_at timestamptz not null default now(),
   imported_by uuid default auth.uid() references auth.users(id)
 );
+
+create index if not exists performance_imports_user_idx on public.performance_imports(imported_by);
+create index if not exists performance_imports_time_idx on public.performance_imports(imported_at desc);
 
 create table if not exists public.performance_tickets (
   id text primary key,
@@ -78,6 +81,8 @@ create table if not exists public.performance_reviews (
   updated_by uuid default auth.uid() references auth.users(id)
 );
 
+create index if not exists performance_reviews_user_idx on public.performance_reviews(updated_by);
+
 alter table public.performance_members enable row level security;
 alter table public.performance_imports enable row level security;
 alter table public.performance_tickets enable row level security;
@@ -92,25 +97,25 @@ drop policy if exists performance_members_self on public.performance_members;
 create policy performance_members_self on public.performance_members for select to authenticated using(user_id=(select auth.uid()));
 
 drop policy if exists performance_imports_read on public.performance_imports;
-create policy performance_imports_read on public.performance_imports for select to authenticated using(public.performance_has_role(array['admin','analyst','viewer']));
+create policy performance_imports_read on public.performance_imports for select to authenticated using((select public.performance_has_role(array['admin','analyst','viewer'])));
 drop policy if exists performance_imports_insert on public.performance_imports;
-create policy performance_imports_insert on public.performance_imports for insert to authenticated with check(public.performance_has_role(array['admin','analyst']) and imported_by=(select auth.uid()));
+create policy performance_imports_insert on public.performance_imports for insert to authenticated with check((select public.performance_has_role(array['admin','analyst'])) and imported_by=(select auth.uid()));
 drop policy if exists performance_imports_update on public.performance_imports;
-create policy performance_imports_update on public.performance_imports for update to authenticated using(public.performance_has_role(array['admin','analyst'])) with check(public.performance_has_role(array['admin','analyst']));
+create policy performance_imports_update on public.performance_imports for update to authenticated using((select public.performance_has_role(array['admin','analyst']))) with check((select public.performance_has_role(array['admin','analyst'])));
 
 drop policy if exists performance_tickets_read on public.performance_tickets;
-create policy performance_tickets_read on public.performance_tickets for select to authenticated using(public.performance_has_role(array['admin','analyst','viewer']));
+create policy performance_tickets_read on public.performance_tickets for select to authenticated using((select public.performance_has_role(array['admin','analyst','viewer'])));
 drop policy if exists performance_tickets_insert on public.performance_tickets;
-create policy performance_tickets_insert on public.performance_tickets for insert to authenticated with check(public.performance_has_role(array['admin','analyst']));
+create policy performance_tickets_insert on public.performance_tickets for insert to authenticated with check((select public.performance_has_role(array['admin','analyst'])));
 drop policy if exists performance_tickets_update on public.performance_tickets;
-create policy performance_tickets_update on public.performance_tickets for update to authenticated using(public.performance_has_role(array['admin','analyst'])) with check(public.performance_has_role(array['admin','analyst']));
+create policy performance_tickets_update on public.performance_tickets for update to authenticated using((select public.performance_has_role(array['admin','analyst']))) with check((select public.performance_has_role(array['admin','analyst'])));
 
 drop policy if exists performance_reviews_read on public.performance_reviews;
-create policy performance_reviews_read on public.performance_reviews for select to authenticated using(public.performance_has_role(array['admin','analyst','viewer']));
+create policy performance_reviews_read on public.performance_reviews for select to authenticated using((select public.performance_has_role(array['admin','analyst','viewer'])));
 drop policy if exists performance_reviews_insert on public.performance_reviews;
-create policy performance_reviews_insert on public.performance_reviews for insert to authenticated with check(public.performance_has_role(array['admin','analyst']) and updated_by=(select auth.uid()));
+create policy performance_reviews_insert on public.performance_reviews for insert to authenticated with check((select public.performance_has_role(array['admin','analyst'])) and updated_by=(select auth.uid()));
 drop policy if exists performance_reviews_update on public.performance_reviews;
-create policy performance_reviews_update on public.performance_reviews for update to authenticated using(public.performance_has_role(array['admin','analyst'])) with check(public.performance_has_role(array['admin','analyst']) and updated_by=(select auth.uid()));
+create policy performance_reviews_update on public.performance_reviews for update to authenticated using((select public.performance_has_role(array['admin','analyst']))) with check((select public.performance_has_role(array['admin','analyst'])) and updated_by=(select auth.uid()));
 
 -- Clients can call this only after every batch succeeds. It prevents partial
 -- imports from being advertised as complete, including an initial backfill.
@@ -118,7 +123,7 @@ create or replace function public.performance_complete_import(batch_id uuid, exp
 returns integer language plpgsql security invoker set search_path = '' as $$
 declare actual integer;
 begin
-  if current_user not in ('service_role','postgres') and not public.performance_has_role(array['admin','analyst']) then
+  if current_user not in ('service_role','postgres') and not (select public.performance_has_role(array['admin','analyst'])) then
     raise exception 'Performance analyst access is required';
   end if;
   select count(*) into actual from public.performance_tickets where import_id=batch_id;
