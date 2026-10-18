@@ -5,10 +5,26 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018charts">
-  <script src="config.js?v=20261018live"></script><script type="module" src="app.mjs?v=20261018live"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018login">
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018login"></script>
 </head>
 <body>
+<main id="login-screen" class="auth-screen" aria-labelledby="login-title">
+  <div class="auth-layout">
+    <section class="auth-intro">
+      <div class="brand"><span class="stc">stc</span><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></div>
+      <div class="auth-welcome"><div class="eyebrow">PERFORMANCE REVIEW · USE CASE 04</div><h1 id="login-title">COW performance,<br>in focus.</h1><p>Your workspace for service performance, operational insights and monthly reviews.</p><div class="auth-features"><span><span data-icon="activity"></span>Weekly & monthly analysis</span><span><span data-icon="layers"></span>Year-on-year comparisons</span><span><span data-icon="check"></span>One validated data source</span></div></div>
+      <div class="powered">Powered by <b>ACES</b><small>Advanced Communication & Electronic Systems</small></div>
+    </section>
+    <section class="auth-access" aria-label="Performance account sign-in">
+      <div id="login-content"><div class="auth-loading" role="status"><span class="spinner"></span>Preparing sign-in…</div></div>
+      <div id="login-status" class="auth-status" role="status" aria-live="polite" hidden></div>
+      <p class="auth-footnote"><span data-icon="lock"></span>Access is limited to approved performance accounts.</p>
+      <noscript><p>Enable JavaScript to sign in to your performance account.</p></noscript>
+    </section>
+  </div>
+</main>
+<div id="dashboard-shell" hidden inert>
 <a href="#main" class="skip">Skip to performance analysis</a>
 <aside class="sidebar" id="sidebar">
   <a class="brand" href="#overview" aria-label="stc COW performance home"><span class="stc">stc</span><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></a>
@@ -75,5 +91,6 @@
 </div></dialog>
 <dialog id="chart-dialog" class="bi-chart-dialog"><div class="dialog-header"><span class="eyebrow">PERFORMANCE CHART</span><button class="icon-button close-dialog" aria-label="Close expanded chart" data-icon="close"></button></div><div id="chart-dialog-content"></div></dialog>
 <div id="chart-tooltip" class="bi-tooltip" role="tooltip" hidden></div>
+</div>
 <div class="toast" id="toast" role="status" hidden></div>
 </body></html>
