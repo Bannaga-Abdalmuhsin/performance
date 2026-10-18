@@ -1,7 +1,7 @@
 import {FIELDS,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs';
 import {PerformanceDatabase} from './database.mjs?v=20261018users';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport} from './analysis.mjs';
+import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate} from './analysis.mjs?v=20261018nsa';
 import {renderReport} from './report.mjs?v=20261018clean';
 import {createChartExport} from './charts.mjs?v=20261018clean';
 
@@ -21,7 +21,7 @@ const stamp=(s)=>s?new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'shor
 const titles={overview:['Monthly performance','COW passive infrastructure performance, in focus.'],causes:['Root cause analysis','Understand what drives faults and restoration time.'],sites:['Site performance','Prioritize recurring faults and sites with the greatest restoration time.'],tickets:['Ticket register','Trace monthly results to individual source records.'],review:['Monthly review','Bring the results, commentary and next actions together.'],settings:['User settings','Manage your account, profile and password.']};
 for(const [id,r]of Object.entries(REPORTS))titles[id]=[r.title,({SA:'Services affected',NSA:'Non-service affected'})[r.impact]+' · COW performance for stc.'];
 const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'powerbi',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both'};
-let profiles={},refreshTimer=null,refreshBusy=false;
+let profiles={},reportDates={},refreshTimer=null,refreshBusy=false;
 let connectionError='',accountEmail='',authBusy=false;
 let data=null,profile={},db=null,member=null,source='none',recordsById=new Map(),reviewDirty=false,reviewToken=0,reviewDraft={commentary:'',actions:''},toastTimer;
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,6000);}
@@ -30,6 +30,7 @@ function dashboardAccessible(){return !!data&&!!((db?.session&&member?.active)||
 function options(selector,values,allLabel){const el=$(selector),prior=el.value;el.innerHTML=`<option value="all">${allLabel}</option>`+values.map(v=>`<option value="${e(v)}">${e(v)}</option>`).join('');el.value=values.includes(prior)?prior:'all';}
 function activeReportId(){return REPORTS[state.view]?state.view:state.reportView;}
 function activeModel(){return buildReport(data?.records||[],state,profiles,data?.meta||{},activeReportId());}
+function selectLatestPeriod(){if(!data)return;const date=reportDates[activeReportId()]||data.meta.max_date;state.period=date.slice(0,7);state.year=Number(date.slice(0,4));state.week=weekNumber(date);}
 function fillFilters(){
   const records=data?.records||[];const unique=(field,rows=records)=>[...new Set(rows.map(r=>r[field]).filter(Boolean))].sort();
   options('#region-filter',unique('region'),'All regions');$('#region-filter').value=state.region;
@@ -39,7 +40,7 @@ function fillFilters(){
   $('#period-filter').value=state.period;$('#impact-filter').value=state.service_impact;$('#scope-filter').value=state.scope;
   if(data){$('#period-filter').min=data.meta.min_date.slice(0,7);$('#period-filter').max=data.meta.max_date.slice(0,7);}
   const definition=REPORTS[activeReportId()],weekly=definition?.mode.includes('week');
-  $('#period-field').hidden=weekly;$('#week-field').hidden=!weekly;$('#year-field').hidden=!weekly;
+  $('#period-field').hidden=weekly;$('#week-field').hidden=!weekly;$('#year-field').hidden=!weekly;$('#latest-period').hidden=!weekly;
   $('#period-label').textContent=definition?.mode==='year'?'Review through':'Review month';
   $('#impact-filter').value=definition?.impact==='NSA'?'NSA':'Outage';$('#impact-filter').disabled=true;
   $('#scope-filter').options[0].textContent='Power BI page criteria';
@@ -51,7 +52,8 @@ function setData(dataset,origin){
   if(!dataset?.records?.length||!dataset.meta?.min_date||!dataset.meta?.max_date)throw new Error('The dataset has no valid dated records.');
   const wasLatest=state.followLatest;
   data=dataset;source=origin;profile=dataset.meta.profile||profile;
-  if(wasLatest||!state.year){state.period=dataset.meta.max_date.slice(0,7);state.year=Number(dataset.meta.max_date.slice(0,4));state.week=weekNumber(dataset.meta.max_date);}recordsById=new Map(data.records.map(r=>[r.id,r]));
+  reportDates=Object.fromEntries(Object.keys(REPORTS).map(id=>[id,latestReportDate(data.records,profiles,data.meta,id)]));
+  if(wasLatest||!state.year)selectLatestPeriod();recordsById=new Map(data.records.map(r=>[r.id,r]));
   if(!coverageFor(data.meta,state.period))state.period=data.meta.max_date.slice(0,7);
   state.page=0;fillFilters();$('#nav-count').textContent=number(data.records.length);
   $('#sidebar-source').textContent=origin==='database'?'Live PostgreSQL · 30s refresh':origin==='preview'?'Local import preview':data.meta.source_drive_id?'Cumulative data snapshot':'Power BI model snapshot';$('#sidebar-dot').classList.toggle('live',origin==='database');
@@ -130,7 +132,7 @@ function render(){
   persistDraft();const unlocked=dashboardAccessible();$('#dashboard-shell').hidden=!unlocked;$('#dashboard-shell').inert=!unlocked;$('#login-screen').hidden=unlocked;$('#login-screen').inert=unlocked;
   if(!unlocked){const account=!!db?.session&&state.view==='settings';document.title=account?'User settings · stc COW':'Sign in · stc COW';$('#content').innerHTML='';$('#login-content').innerHTML=account?`<button type="button" class="text-button account-back" id="return-to-sign-in">← Back to sign-in</button>${settingsView()}`:connectionPanel();$('#login-status').hidden=!authBusy||!!connectionError;fillIcons($('#login-content'));history.replaceState(null,'',account?'#settings':'#login');return;}
   $('#login-content').innerHTML='';$('#login-status').innerHTML='';$('#login-status').hidden=true;
-  const [title,subtitle]=titles[state.view];$('#page-title').textContent=title;$('#page-subtitle').textContent=subtitle;
+  const [title,subtitle]=titles[state.view];$('#page-title').textContent=title;$('#page-subtitle').textContent=subtitle+(state.view==='weekly-nsa'?(reportDates['weekly-nsa']?' · Latest NSA records: '+dateName(reportDates['weekly-nsa']):' · No NSA records in the uploaded data.'):'');
   document.title=`${title} · stc COW`;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===state.view));
   $('.filters').hidden=!data||state.view==='settings';$('.scope-caption').hidden=!data||state.view==='settings';if(state.view==='settings')$('#extra-filters').hidden=true;
   const labels=[];if(state.site_id!=='all')labels.push(state.site_id);if(state.root_cause!=='all')labels.push(state.root_cause);if(state.duration_bucket!=='all')labels.push(state.duration_bucket);
@@ -139,7 +141,7 @@ function render(){
   $('#content').innerHTML=REPORTS[state.view]?renderReport(activeModel(),state,data.meta):({causes:causeView,sites:sitesView,tickets:ticketView,review:reviewView,settings:settingsView})[state.view]();
   fillIcons($('#content'));
 }
-function navigate(view){if(!titles[view])return;if(!dashboardAccessible()){if(view==='settings'&&db?.session){state.view='settings';render();}return;}persistDraft();reviewToken++;state.view=view;if(REPORTS[view]){state.reportView=view;state.duration_bucket='all';}state.page=0;state.query='';state.sort=view==='sites'?'tickets':'created_at';state.dir=-1;$('#sidebar').classList.remove('open');fillFilters();render();history.replaceState(null,'','#'+view);}
+function navigate(view){if(!titles[view])return;if(!dashboardAccessible()){if(view==='settings'&&db?.session){state.view='settings';render();}return;}persistDraft();reviewToken++;state.view=view;if(REPORTS[view]){state.reportView=view;state.duration_bucket='all';if(state.followLatest)selectLatestPeriod();}state.page=0;state.query='';state.sort=view==='sites'?'tickets':'created_at';state.dir=-1;$('#sidebar').classList.remove('open');fillFilters();render();history.replaceState(null,'','#'+view);}
 function showDetail(id){const r=recordsById.get(id);if(!r)return;const fields=[['COW',r.site_id],['Region / district',r.region+' / '+r.district],['Location',r.site_name],['Service impact',r.service_impact],['Severity / vendor',r.severity+' / '+r.vendor],['Site priority',r.site_label],['Created',stamp(r.created_at)],['Cleared',stamp(r.cleared_at)],['Referred to ACES',stamp(r.referred_at)],['Recorded restoration',hours(r.duration_minutes)+' hrs'],['Source SLA allowance',hours(r.sla_minutes)+' hrs'],['Legacy DAX duration',hours(r.duration_dax_minutes)+' hrs'],['Record key',r.source_key||r.id],['Parent TT',r.parent_tt||'Blank'],['Impact start',stamp(r.impact_start)],['Impact finish',stamp(r.impact_finish)],['Decoded / source row',r.source_row]];
   $('#detail-content').innerHTML=`<div class="detail-heading"><div><h2>${e(r.ticket_number)}</h2><span class="muted" style="font-size:11px">${e(r.site_id)} · ${e(r.root_cause)}</span></div><span class="impact ${r.service_impact==='No impact'?'no':''}">${e(r.service_impact)}</span></div><dl class="detail-grid">${fields.map(([k,v])=>`<div><dt>${k}</dt><dd>${e(v??'—')}</dd></div>`).join('')}</dl><div class="detail-block"><h3>Repair details</h3><p>${e(r.repair_details||'No repair details recorded.')}</p></div><div class="detail-block"><h3>SLA outcome</h3><p>${r.sla_excluded?'Explicitly excluded from SLA compliance':r.sla_breached===true?'Recorded as breached':r.sla_breached===false?'Recorded as within SLA':'No source outcome recorded'}${r.exclusion_reason?' · '+e(r.exclusion_reason):''}</p></div>${r.quality_flags?.length?`<div class="detail-block warn"><h3>Source data checks</h3><p>${r.quality_flags.map(e).join('<br>')}</p></div>`:''}`;$('#detail-dialog').showModal();
 }
@@ -179,6 +181,7 @@ document.addEventListener('click',async(ev)=>{
     if(b.dataset.site){persistDraft();state.site_id=b.dataset.site;navigate('tickets');return;}
     if(b.dataset.severity){state.severity=b.dataset.severity;fillFilters();navigate('tickets');return;}
     if(b.dataset.duration){state.duration_bucket=b.dataset.duration;navigate('tickets');return;}
+    if(b.id==='latest-period'){persistDraft();reviewToken++;state.followLatest=true;selectLatestPeriod();state.page=0;fillFilters();render();return;}
     if(b.id==='refresh-now'){await checkForUpdates(true);return;}
     if(b.dataset.priority){persistDraft();state.site_label=b.dataset.priority;fillFilters();navigate('tickets');return;}
     if(b.dataset.sort){if(state.sort===b.dataset.sort)state.dir*=-1;else{state.sort=b.dataset.sort;state.dir=-1;}render();return;}

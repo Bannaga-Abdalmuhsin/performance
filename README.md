@@ -91,3 +91,5 @@ The decoded source was reconciled to the JavaScript engine and PostgreSQL across
 `dist/private-snapshot.json.gz` exists only in the owner-private native Site source. It must never be pushed to the public GitHub repository or GitHub Pages. The public `dist/config.js` has `privateSnapshot: null` and the browser publishable key; it never contains a secret or service-role key. Raw files, extracted records, temporary payloads and import containers must remain outside public source control.
 
 The public repository contains a formula-audit placeholder. The full extracted audit and operational source snapshot are available only in the owner-private hosted Site.
+
+Weekly NSA opens the latest week containing an eligible NSA record, independently of the overall SA upload cutoff. The subtitle shows the latest NSA record date. Explicitly selected periods remain selected; **Latest available week** returns to the newest available week and follows future completed uploads.

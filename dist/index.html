@@ -5,8 +5,8 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018users">
-  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018users"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261018nsa">
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261018nsa"></script>
 </head>
 <body>
 <main id="login-screen" class="auth-screen" aria-labelledby="login-title">
@@ -61,6 +61,7 @@
       <label class="filter-field"><span class="filter-label">District<select id="district-filter"><option value="all">All districts</option></select></span></label>
       <label class="filter-field"><span class="filter-label">Service impact<select id="impact-filter"><option value="Outage">Outage (SA)</option><option value="NSA">Not Outage (NSA)</option><option value="No impact">No impact</option><option value="Degraded">Degraded</option><option value="all">All impacts</option></select></span></label>
       <label class="filter-field scope-field"><span class="filter-label">Analysis scope<select id="scope-filter"><option value="powerbi">Power BI page criteria</option><option value="all">All recorded faults</option></select></span></label>
+      <button class="filter-more latest-period" id="latest-period" type="button" hidden><span data-icon="clock"></span><span>Latest available week</span></button>
       <button class="filter-more" id="more-filters" aria-expanded="false"><span data-icon="filter"></span><span>More</span></button>
     </section>
     <section class="extra-filters" id="extra-filters" hidden>

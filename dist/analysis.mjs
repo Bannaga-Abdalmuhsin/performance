@@ -32,6 +32,12 @@ export function reportScope(records,state,profiles,id=state.reportView||state.vi
   const rows=scopeFilter(records,{...state,service_impact:undefined,period:undefined,query:undefined},profile);
   return rows.filter(r=>impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage');
 }
+export function latestReportDate(records,profiles,meta,id){
+  if(REPORTS[id]?.impact!=='NSA')return meta.max_date||null;
+  // NSA uploads may stop before SA. Use eligible NSA records for the default
+  // week without carrying an SA-only cutoff into the NSA overview.
+  return reportScope(records,{scope:'powerbi'},profiles,id).reduce((latest,row)=>row.created_date&&(!latest||row.created_date>latest)?row.created_date:latest,null);
+}
 function covered(range,meta){
   if(!range)return {covered:false,partial:false};
   const yes=range.end>=meta.min_date&&range.start<=meta.max_date;

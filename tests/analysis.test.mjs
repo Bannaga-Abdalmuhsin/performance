@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {weekNumber,weeksInYear,weekRange,shiftWeek,durationBucket,buildReport,comparisonGroups,change} from '../dist/analysis.mjs';
+import {weekNumber,weeksInYear,weekRange,shiftWeek,durationBucket,buildReport,comparisonGroups,change,latestReportDate} from '../dist/analysis.mjs';
 const profiles=JSON.parse(readFileSync(new URL('../dist/report-profiles.json',import.meta.url)));
 const r=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',parent_tt:null,root_cause:'Generator Issue',duration_minutes:60,site_id:'COW1',quality_flags:[],...extra});
 const state={period:'2026-08',year:2026,week:36,scope:'powerbi'};
 const meta={min_date:'2024-01-01',max_date:'2026-08-31'};
+test('NSA latest week uses eligible NSA records instead of the later SA cutoff',()=>{
+ const records=[r('nsa','2026-08-31',{service_impact:'No impact'}),r('degraded','2026-08-30',{service_impact:'Degraded'}),r('child','2026-09-20',{service_impact:'No impact',parent_tt:'PR1'}),r('sa','2026-09-30')],mixedMeta={...meta,max_date:'2026-09-30'};
+ const latest=latestReportDate(records,profiles,mixedMeta,'weekly-nsa');assert.equal(latest,'2026-08-31');assert.equal(weekNumber(latest),36);assert.equal(latestReportDate(records,profiles,mixedMeta,'weekly-sa'),'2026-09-30');assert.equal(buildReport(records,{...state,week:weekNumber(latest)},profiles,mixedMeta,'weekly-nsa').now.summary.tickets,2);
+});
+test('absence of NSA records never invents an NSA cutoff from SA dates',()=>{
+ assert.equal(latestReportDate([r('sa','2026-08-31')],profiles,meta,'weekly-nsa'),null);
+});
 test('Sunday weeks use January 1, with explicit short first/last weeks',()=>{
  assert.equal(weekNumber('2026-01-01'),1);assert.equal(weekNumber('2026-01-03'),1);assert.equal(weekNumber('2026-01-04'),2);
  assert.deepEqual(weekRange(2026,1),{start:'2026-01-01',end:'2026-01-03',year:2026,week:1,label:'W01 · 2026'});
