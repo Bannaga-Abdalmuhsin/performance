@@ -20,6 +20,12 @@ test('Power BI row count, recorded-duration denominator, exemptions, missing val
  const no=summarize([r(5,{duration_minutes:null,sla_breached:null})]);assert.equal(no.durationMinutes,0);assert.equal(no.mttr,null);assert.equal(no.slaCompliance,null);
  assert.equal(summarize([r(1),r(1,{site_id:'COW002'})]).tickets,2);assert.equal(summarize([r(1),r(1,{site_id:'COW002'})]).distinctTickets,1);
 });
+test('recurrence requires at least three tickets per COW within the selected scope',()=>{
+ const rows=[...Array.from({length:2},(_,i)=>r('a'+i,{site_id:'TWICE'})),...Array.from({length:3},(_,i)=>r('b'+i,{site_id:'THREE'})),...Array.from({length:4},(_,i)=>r('c'+i,{site_id:'FOUR'})),r('single',{site_id:'ONCE'}),r('missing',{site_id:null})];
+ const summary=summarize(rows);assert.equal(summary.sites,4);assert.equal(summary.repeatSites,2);assert.equal(summary.repeatRate,50);
+ const scoped=summarize(rows.filter(row=>!['TTb2','TTc2','TTc3'].includes(row.ticket_number)));assert.equal(scoped.repeatSites,0);assert.equal(scoped.repeatRate,0);
+ assert.equal(summarize([]).repeatRate,null);assert.equal(summarize([r('missing',{site_id:null})]).repeatRate,null);
+});
 test('service-impact intervals reject missing and reversed dates and preserve real zero',()=>{
  const a=r(1,{impact_start:'2026-08-01T12:00:00+03:00',impact_finish:'2026-08-01T13:00:00+03:00'});
  assert.equal(summarize([a,r(2,{impact_start:a.impact_finish,impact_finish:a.impact_start}),r(3)]).impactMinutes,60);

@@ -1,86 +1,169 @@
-import {num,summarize,groupBy} from './core.mjs?v=20261018labels';
-import {REPORTS,buildReport,change} from './analysis.mjs?v=20261018labels';
+import {summarize} from './core.mjs?v=20261019pdf';
+import {REPORTS,buildReport,change} from './analysis.mjs?v=20261019pdf';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261019pdf';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const n=(v,d=0)=>num(v)?v.toLocaleString('en-GB',{minimumFractionDigits:d,maximumFractionDigits:d}):'N/A';
-const h=v=>num(v)?n(v/60,1):'N/A';
+const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
 const date=s=>s?new Date(s+'T12:00:00Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'Unavailable';
-const range=s=>s.range?`${date(s.range.start)} - ${date(s.range.end)}`:'No matching calendar week';
-const percentage=(value,whole)=>whole?`${n(value/whole*100,1)}%`:'N/A';
-const share=(value,total)=>`${n(value)} tickets (${percentage(value,total)})`;
-function movement(current,prior,label,unit=''){
-  if(!num(current)||!num(prior))return `${label}: comparison unavailable.`;
-  if(prior===0)return current===0?`${label} remained at zero.`:`${label} reached ${n(current,unit?1:0)}${unit} from a zero comparison baseline.`;
-  const delta=change(current,prior);
-  return `${label} ${delta===0?'was unchanged':delta<0?'decreased':'increased'}${delta===0?'':` by ${n(Math.abs(delta),1)}%`} against the comparison period.`;
-}
-const filters=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
-function summaryRows(report){return report.series.map((s,i)=>`<tr><td><b>${i===0?'Selected period':i===1?'Comparison':'Earlier comparison'}</b><small>${esc(s.range?.label||'Unavailable')}</small></td><td>${esc(range(s))}<small>${!s.covered?'Unavailable':s.partial?'Partial source coverage':'Within source date range'}</small></td><td class="number">${n(s.summary?.tickets)}</td><td class="number">${h(s.summary?.durationMinutes)}</td></tr>`).join('');}
-function table(headers,rows,classes=''){return `<table class="${classes}"><thead><tr>${headers.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${rows.join('')||`<tr><td colspan="${headers.length}" class="empty">No matching records in the selected period.</td></tr>`}</tbody></table>`;}
+const safeFile=s=>String(s).replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-|-$/g,'').slice(0,100);
+const dimensions=svg=>{const m=svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);if(!m)throw new Error('A chart could not be prepared.');return {width:Number(m[1]),height:Number(m[2])};};
 
-export function createReviewReport({records,state,profiles={},meta,generatedAt=new Date(),assetBase=''}){
-  const selection={...state,scope:'all'},id=REPORTS[selection.view]?selection.view:selection.reportView||'overview';
-  // Search is a ticket-register selection and must match its exported scope.
+export function createDashboardExport({records,state,profiles={},meta,generatedAt=new Date(),selectedIds}={}){
+  const selection={...state,scope:'all'},id=REPORTS[selection.view]?selection.view:REPORTS[selection.reportView]?selection.reportView:'overview';
   const report=buildReport(records,selection,profiles,meta,id);
   if(selection.view==='tickets'&&selection.query){
-    const matches=r=>[r.ticket_number,r.site_id,r.site_name,r.root_cause,r.repair_details].some(v=>String(v||'').toLowerCase().includes(selection.query.toLowerCase()));
+    const query=selection.query.toLowerCase(),matches=r=>[r.ticket_number,r.site_id,r.site_name,r.root_cause,r.repair_details].some(v=>String(v||'').toLowerCase().includes(query));
     report.scope=report.scope.filter(matches);report.series=report.series.map(s=>{const rows=s.rows.filter(matches);return {...s,rows,summary:s.covered?summarize(rows):null};});
     [report.now,report.prev]=report.series;report.ticketChange=change(report.now.summary?.tickets,report.prev.summary?.tickets);report.durationChange=change(report.now.summary?.durationMinutes,report.prev.summary?.durationMinutes);
   }
-  const s=report.now.summary,prior=report.prev.summary,rows=report.now.rows,causes=groupBy(rows,'root_cause'),regions=groupBy(rows,'region');
-  const impact=report.definition.impact==='NSA'?'Non-service affected (NSA)':'Services affected (SA)',selectedFilters=filters.filter(([key])=>selection[key]&&selection[key]!=='all').map(([key,label])=>`${label}: ${selection[key]}`);
+  const cards=dashboardCards(report,selection,meta),sections=dashboardSections(report,selection,meta);
+  const items=[...cards.map(card=>({id:card.id,label:card.label,type:'card',card})),...sections.flatMap(section=>section.charts.map(chart=>({id:chart.id,label:chart.title,type:'chart',chart,section:section.id,layout:section.layout})))];
+  const selectedFilters=filterFields.filter(([key])=>selection[key]&&selection[key]!=='all').map(([key,label])=>`${label}: ${selection[key]}`);
   if(selection.view==='tickets'&&selection.query)selectedFilters.push(`Search: ${selection.query}`);
-  const generated=new Date(generatedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'});
-  const coverage=!report.now.covered?'The selected period is outside the available source date range. Metrics are unavailable.':report.now.partial?`Partial period: available ${report.definition.impact} data ends ${date(report.sourceCoverage.max_date)}. Interpret period comparisons with this coverage in mind.`:`Available ${report.definition.impact} source date range: ${date(report.sourceCoverage.min_date)} - ${date(report.sourceCoverage.max_date)}.`;
-  const findings=!s?['No metrics are reported for this unavailable period. Select a period within the source date range.']:s.tickets===0?['No tickets match the selected period and filters. Broaden the selection to review a wider scope.']:[
-    `${n(s.tickets)} tickets were recorded across ${n(s.sites)} COW sites. ${movement(s.tickets,prior?.tickets,'Ticket volume')}`,
-    `${h(s.durationMinutes)} restoration hours were recorded; MTTR was ${h(s.mttr)} hours. ${movement(s.durationMinutes,prior?.durationMinutes,'Recorded restoration')}`,
-    causes[0]?`${causes[0].name} was the leading cause with ${share(causes[0].tickets,s.tickets)}. ${regions[0]?.name||'The leading region'} recorded ${n(regions[0]?.tickets)} tickets.`:'',
-    `${n(s.breached)} of ${n(s.slaEligible)} eligible records breached SLA${num(s.slaCompliance)?`, giving ${n(s.slaCompliance,1)}% compliance`:''}. ${n(s.repeatSites)} sites had two or more tickets.`
-  ].filter(Boolean);
-  const metric=(label,value,unit,note)=>`<div class="metric"><span>${label}</span><strong>${value}<em>${unit}</em></strong><small>${note}</small></div>`;
-  const focus=!s?.tickets?'Select a period and scope with available records to establish review priorities.':(causes[0]?'Target the leading cause, '+causes[0].name+', with the responsible team. ':'')+(s.breached?'Prioritize the drivers of '+n(s.breached)+' recorded SLA breaches and track corrective actions.':'Maintain service assurance and monitor recurrence across '+n(s.repeatSites)+' COW sites.');
-  const pages=[];
-  pages.push(`<div class="section-kicker">EXECUTIVE SUMMARY</div><h1>COW performance<br><span>${esc(report.definition.title)}</span></h1><p class="lead">${esc(report.now.range?.label||'Selected period unavailable')} <span class="dot">/</span> ${esc(impact)}</p><div class="scope-box"><b>Selected analysis scope</b><p>All recorded faults within the selected impact group, period and filters.</p><p>${esc(selectedFilters.join(' | ')||'All regions | All districts | All vendors | All severities | All labels | All root causes | All COW sites')}</p></div><div class="metrics">${metric('Recorded tickets',n(s?.tickets),'',s?`${n(s.sites)} COW sites`:'Unavailable period')}${metric('Restoration',h(s?.durationMinutes),'hrs',s?`${n(s.durationCount)} recorded durations`:'Unavailable period')}${metric('MTTR',h(s?.mttr),'hrs','Valid recorded durations')}${metric('SLA compliance',num(s?.slaCompliance)?n(s.slaCompliance,1):'N/A',num(s?.slaCompliance)?'%':'',`${n(s?.slaEligible)} eligible records`)}</div><h2>Key findings</h2><div class="findings">${findings.map((text,i)=>`<div><span>${String(i+1).padStart(2,'0')}</span><p>${esc(text)}</p></div>`).join('')}</div><h2>Period comparison</h2>${table(['Period','Date range','Tickets','Restoration hrs'],[summaryRows(report)],'comparison')}<section class="executive-focus"><h2>Management focus</h2><p>${esc(focus)}</p></section><p class="coverage">${esc(coverage)}</p>`);
-  const safeLabel=(report.now.range?.label||selection.period||'review').replace(/[^a-z0-9-]+/gi,'-').replace(/-$/,'');
-  const filename=`stc-COW-${id}-${safeLabel}-executive.pdf`,image=name=>esc(new URL('assets/'+name,assetBase||'https://invalid.local/').href);
-  const header=`<header><div class="brand"><img class="stc" src="${image('stc-logo.png')}" alt="stc"><span>COW OPERATIONS<br><b>Performance analysis</b></span></div><div class="provider"><span>Prepared by</span><img src="${image('aces-managed-services-logo.png')}" alt="ACES Managed Services"></div></header>`;
-  const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(filename.replace('.pdf',''))}</title><style>${REPORT_CSS}</style></head><body>${pages.map((body,i)=>`<section class="report-page">${header}<main>${body}</main><footer><span>stc COW | ${esc(report.definition.title)} | ${esc(report.now.range?.label||'Unavailable')}</span><span>${i+1} / ${pages.length}</span><small>Generated ${esc(generated)} AST</small></footer></section>`).join('')}</body></html>`;
-  return {html,filename,report,pageCount:pages.length,selectedFilters};
+  const manifest={report,state:selection,meta:{...meta},cards,sections,items,selectedFilters,generatedAt:new Date(generatedAt),title:report.definition.title,period:report.now.range?.label||'Unavailable',filename:`stc-COW-${id}-${safeFile(report.now.range?.label||selection.period)}-dashboard.pdf`};
+  return selectedIds===undefined?manifest:selectExportItems(manifest,selectedIds);
 }
 
-export async function printAnalysisReport(options){
-  const result=createReviewReport({...options,assetBase:new URL('.',document.baseURI).href}),frame=document.createElement('iframe');
-  frame.title='Performance review PDF';frame.setAttribute('aria-hidden','true');frame.style.cssText='position:fixed;left:-12000px;top:0;width:794px;height:1123px;border:0;';
-  // A detached report document prevents dashboard navigation or filter changes
-  // while the browser opens its native PDF destination dialog.
-  const loaded=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('The report could not be prepared. Please try again.')),15000);frame.onload=()=>{clearTimeout(timer);resolve();};});
-  frame.srcdoc=result.html;document.body.append(frame);
+export function selectExportItems(manifest,selectedIds){
+  const ids=new Set(selectedIds),available=new Set(manifest.items.map(i=>i.id));
+  if([...ids].some(id=>!available.has(id)))throw new Error('One of the selected items is unavailable. Reopen the export.');
+  const items=manifest.items.filter(i=>ids.has(i.id));
+  if(!items.length)throw new Error('Select at least one card or chart.');
+  return {...manifest,items};
+}
+function wrap(text,max){
+  const lines=[];let line='';
+  for(const word of String(text).split(/\s+/)){
+    const chunks=word.length>max?Array.from({length:Math.ceil(word.length/max)},(_,i)=>word.slice(i*max,(i+1)*max)):[word];
+    for(const chunk of chunks){if(line&&(line+' '+chunk).length>max){lines.push(line);line=chunk;}else line=(line+' '+chunk).trim();}
+  }
+  if(line)lines.push(line);return lines;
+}
+function textSvg(lines,{width=1480,size=16,color='#816c91',padding=0,lineHeight=24}={}){
+  const height=lines.length*lineHeight+padding*2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><rect width="100%" height="100%" fill="white"/>${lines.map((line,i)=>`<text x="${padding}" y="${padding+size+i*lineHeight}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:${size}px;fill:${color}">${esc(line)}</text>`).join('')}</svg>`;
+}
+function periodsSvg(manifest){
+  const width=1480,height=91,gap=18,count=manifest.report.series.length,cw=(width-gap*(count-1))/count;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${manifest.report.series.map((s,i)=>{
+    const x=i*(cw+gap),label=i===0?'Review period':i===1?'Comparison':'Earlier comparison';
+    return `<rect x="${x+1}" y="1" width="${cw-2}" height="88" rx="11" fill="${i?'white':'#faf7fc'}" stroke="${i?'#e9e3ee':'#cfb9df'}"/><g style="font-family:Inter,Segoe UI,Arial,sans-serif"><text x="${x+19}" y="24" style="font-size:12px;fill:#807188">${label}</text><text x="${x+19}" y="49" style="font-size:19px;font-weight:600;fill:#36144f">${esc(s.range?.label||'Unavailable')}</text><text x="${x+19}" y="72" style="font-size:12px;fill:#83768c">${esc(s.range?date(s.range.start)+' - '+date(s.range.end):'Calendar has no matching week')}</text></g>`;
+  }).join('')}</svg>`;
+}
+
+export function exportChartRows(manifest){
+  const chosen=new Set(manifest.items.filter(i=>i.type==='chart').map(i=>i.id)),rows=[];
+  for(const section of manifest.sections){
+    const charts=section.charts.filter(c=>chosen.has(c.id));if(!charts.length)continue;
+    const expanded=charts.map(c=>exportChartParts(c));
+    const pair=charts.length===2&&expanded.every(p=>p.length===1)&&(section.layout==='area-row'||charts.every(c=>{const d=dimensions(c.svg);return d.width<=800&&d.height<=550;}));
+    if(pair)rows.push({charts:expanded.map(p=>p[0]),weights:section.layout==='area-row'?[.66,.34]:[.5,.5]});
+    else for(const parts of expanded)for(const chart of parts)rows.push({charts:[chart],weights:[1]});
+  }
+  return rows;
+}
+
+// Render the whole chart viewBox, independent of scroll position or viewport.
+export async function rasterizeSvg(svg,{scale=2}={}){
+  const d=dimensions(svg),canvas=document.createElement('canvas');canvas.width=Math.ceil(d.width*scale);canvas.height=Math.ceil(d.height*scale);
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('PDF images could not be prepared in this browser.');
+  const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
   try{
-    await loaded;const doc=frame.contentDocument;
-    await Promise.all([...doc.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve;})));
-    if(doc.fonts?.ready)await doc.fonts.ready;
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});
-    frame.contentWindow.focus();frame.contentWindow.print();
-    // Keep the frame through asynchronous print dialogs (including Safari).
-    setTimeout(()=>frame.remove(),300000)?.unref?.();
-    return result.filename;
-  }catch(error){frame.remove();throw error;}
+    const img=new Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('A chart could not be prepared for PDF. Please try again.'));img.src=url;});
+    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('A PDF image could not be saved.');
+    return new Uint8Array(await blob.arrayBuffer());
+  }finally{URL.revokeObjectURL(url);canvas.width=canvas.height=0;}
+}
+async function loadAsset(name,base){
+  const response=await fetch(new URL('assets/'+name,base));if(!response.ok)throw new Error('The report logos could not be loaded. Please try again.');return new Uint8Array(await response.arrayBuffer());
+}
+let library;
+async function pdfLibrary(){return library??=import('./assets/vendor/pdf-lib-1.17.1.mjs');}
+
+export async function createDashboardPdf(manifest,{rasterize=rasterizeSvg,assetLoader=loadAsset,assetBase=globalThis.document?.baseURI||import.meta.url,onProgress=()=>{}}={}){
+  if(!manifest.items.length)throw new Error('Select at least one card or chart.');
+  const {PDFDocument,StandardFonts,rgb}=await pdfLibrary(),doc=await PDFDocument.create();
+  doc.setTitle(`stc COW - ${manifest.title} - ${manifest.period}`);doc.setAuthor('stc COW Operations');doc.setCreator('stc COW Performance');doc.setProducer('stc COW Performance');doc.setCreationDate(manifest.generatedAt);
+  const regular=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
+  const [stcBytes,acesBytes]=await Promise.all([assetLoader('stc-logo.png',assetBase),assetLoader('aces-managed-services-logo.png',assetBase)]);
+  const stc=await doc.embedPng(stcBytes),aces=await doc.embedPng(acesBytes),cache=new Map();
+  const image=async svg=>{if(!cache.has(svg))cache.set(svg,doc.embedPng(await rasterize(svg)));return await cache.get(svg);};
+  const W=1190.55,H=841.89,M=36,CW=W-2*M,GAP=16,BOTTOM=44;
+  const color=hex=>rgb(...hex.replace('#','').match(/../g).map(x=>parseInt(x,16)/255));
+  const ink=color('#36144f'),muted=color('#8d799c'),purple=color('#4f008c'),border=color('#e9e1ef');
+  const scope=[manifest.period,manifest.report.definition.impact,...(manifest.selectedFilters.length?manifest.selectedFilters:['All regions','All vendors','All Sites Label'])].join(' | ');
+  const scopeSvg=textSvg(wrap(scope,170)),scopeImage=await image(scopeSvg),scopeH=dimensions(scopeSvg).height*CW/1480;
+  let page,y;
+  const addPage=()=>{
+    const continued=doc.getPageCount()>0;
+    page=doc.addPage([W,H]);page.drawRectangle({x:0,y:0,width:W,height:H,color:rgb(1,1,1)});
+    page.drawRectangle({x:M,y:H-65,width:69,height:36,color:purple});const s=stc.scaleToFit(58,27);page.drawImage(stc,{x:M+(69-s.width)/2,y:H-65+(36-s.height)/2,width:s.width,height:s.height});
+    page.drawText('COW PERFORMANCE',{x:M+86,y:H-41,size:10,font:bold,color:purple});page.drawText(continued?manifest.title:'Performance analysis',{x:M+86,y:H-58,size:continued?13:10,font:continued?bold:regular,color:continued?ink:muted});
+    page.drawRectangle({x:W-M-105,y:H-65,width:105,height:36,color:purple});const a=aces.scaleToFit(98,30);page.drawImage(aces,{x:W-M-105+(105-a.width)/2,y:H-65+(36-a.height)/2,width:a.width,height:a.height});
+    page.drawLine({start:{x:M,y:H-79},end:{x:W-M,y:H-79},thickness:.7,color:border});if(!continued)page.drawText(manifest.title,{x:M,y:H-111,size:23,font:bold,color:ink});
+    page.drawImage(scopeImage,{x:M,y:H-(continued?91:125)-scopeH,width:CW,height:scopeH});y=H-(continued?103:139)-scopeH;
+  };
+  const ensure=height=>{if(y-height<BOTTOM-.01)addPage();};
+  addPage();
+  const periodsText=periodsSvg(manifest),periods=await image(periodsText),ph=dimensions(periodsText).height*CW/1480;
+  page.drawImage(periods,{x:M,y:y-ph,width:CW,height:ph});y-=ph+17;
+  const cards=manifest.items.filter(i=>i.type==='card').map(i=>i.card),cardWidth=(CW-3*GAP)/4;
+  for(let start=0;start<cards.length;start+=4){
+    const group=cards.slice(start,start+4),height=Math.max(...group.map(c=>dimensions(cardSvg(c)).height))*cardWidth/340;ensure(height);
+    for(let i=0;i<group.length;i++){const svg=cardSvg(group[i]),h=dimensions(svg).height*cardWidth/340;page.drawImage(await image(svg),{x:M+i*(cardWidth+GAP),y:y-h,width:cardWidth,height:h});}y-=height+GAP;
+  }
+  const rows=exportChartRows(manifest),totalParts=rows.reduce((n,row)=>n+row.charts.length,0);let completed=0;
+  for(const row of rows){
+    const widths=row.weights.map(w=>(CW-GAP*(row.charts.length-1))*w);
+    const boxes=row.charts.map((chart,i)=>{
+      const width=widths[i],d=dimensions(chart.svg),titleLines=wrap(chart.title,Math.max(27,Math.floor((width-34)/7.4))),legendLines=[];let line=[],used=0;
+      for(const item of chartLegend(chart)){const required=item.name.length*6.1+25;if(line.length&&used+required>width-40){legendLines.push(line);line=[];used=0;}line.push(item);used+=required;}
+      if(line.length)legendLines.push(line);
+      const top=22+titleLines.length*18+legendLines.length*18,scale=Math.min(.75,(width-32)/d.width),svgH=d.height*scale;
+      return {chart,width,d,scale,svgH,titleLines,legendLines,top,height:top+svgH+17};
+    });
+    let height=Math.max(...boxes.map(b=>b.height));
+    const available=y-BOTTOM,fit=Math.min(...boxes.map(b=>(available-b.top-17)/b.svgH));
+    // A modest size adjustment keeps a whole row together without clipping it.
+    if(height>available&&fit>=.8&&fit<1){for(const b of boxes){b.scale*=fit;b.svgH*=fit;b.height=b.top+b.svgH+17;}height=Math.max(...boxes.map(b=>b.height));}
+    if(height>H-103-scopeH-BOTTOM)throw new Error('Shorten the selected search text before exporting these charts.');ensure(height);let x=M;
+    for(const b of boxes){
+      page.drawRectangle({x,y:y-height,width:b.width,height,color:rgb(1,1,1),borderColor:border,borderWidth:.7});let yy=y-25;
+      for(const line of b.titleLines){page.drawText(line,{x:x+17,y:yy,size:14,font:bold,color:purple});yy-=18;}
+      if(b.legendLines.length){
+        const lw=(b.width-34)/.75,lh=b.legendLines.length*24;
+        const ls=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${lw} ${lh}" width="${lw}" height="${lh}">${b.legendLines.map((line,i)=>{let xx=0;return line.map(item=>{const at=xx;xx+=(item.name.length*6.1+25)/.75;return `${item.line?`<line x1="${at}" x2="${at+15}" y1="${i*24+13}" y2="${i*24+13}" stroke="${esc(item.color)}" stroke-width="2.5"/>`:`<rect x="${at}" y="${i*24+5}" width="11" height="11" fill="${esc(item.color)}"/>`}<text x="${at+21}" y="${i*24+17}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;fill:#8d799c">${esc(item.name)}</text>`;}).join('');}).join('')}</svg>`;
+        page.drawImage(await image(ls),{x:x+17,y:yy-lh*.75+11,width:b.width-34,height:lh*.75});
+      }
+      const picture=await image(b.chart.svg),iw=b.d.width*b.scale;page.drawImage(picture,{x:x+(b.width-iw)/2,y:y-b.top-b.svgH,width:iw,height:b.svgH});
+      x+=b.width+GAP;onProgress(++completed,totalParts);
+    }
+    y-=height+GAP;
+  }
+  const pages=doc.getPages(),generated=manifest.generatedAt.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'});
+  pages.forEach((p,i)=>{p.drawLine({start:{x:M,y:34},end:{x:W-M,y:34},thickness:.6,color:border});p.drawText('stc COW Operations | '+manifest.title,{x:M,y:20,size:8,font:regular,color:muted});p.drawText(`Generated ${generated} AST`,{x:W/2-84,y:20,size:8,font:regular,color:muted});p.drawText(`${i+1} / ${pages.length}`,{x:W-M-35,y:20,size:8,font:regular,color:muted});});
+  return {bytes:await doc.save(),filename:manifest.filename,pageCount:pages.length,exportedIds:manifest.items.map(i=>i.id),chartPartCount:totalParts,selectedFilters:[...manifest.selectedFilters]};
 }
 
-export const REPORT_CSS=`
-@page{size:A4 portrait;margin:0}
-*{box-sizing:border-box}html,body{margin:0;padding:0;background:white;color:#33263f;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.report-page{position:relative;width:210mm;height:297mm;padding:12mm 15mm 20mm;background:#fff;break-after:page;page-break-after:always}.report-page:last-child{break-after:auto;page-break-after:auto}
-header{height:20mm;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e9e1ef;padding-bottom:4mm;margin-bottom:7mm}.brand,.provider{display:flex;align-items:center}.brand{gap:12px}.brand .stc{width:58px;height:32px;object-fit:contain;background:#4f008c;border-radius:6px;padding:5px}.brand span{font-size:8px;letter-spacing:1.2px;color:#806d90}.brand b{font-size:11px;letter-spacing:.15px;color:#4f008c}.provider{gap:10px}.provider span{white-space:nowrap;font-size:8px;color:#8c7a99}.provider img{background:#4f008c;border-radius:5px;width:108px;height:43px;object-fit:cover}
-.section-kicker{color:#ff375e;font-weight:700;font-size:9px;letter-spacing:2px;margin-bottom:7px}h1{font-size:32px;line-height:1.16;color:#4f008c;letter-spacing:-1px;margin:0 0 8px}h1 span{font-size:23px;letter-spacing:-.5px}h2{font-size:17px;line-height:1.25;color:#4f008c;margin:0 0 10px}h3{font-size:12px;color:#4f008c;margin:10px 0 7px}.lead{font-size:12px;color:#796586;margin:0 0 15px}.dot{color:#ff375e;padding:0 9px}.intro{font-size:10px;color:#806f8e;margin:0 0 13px}
-.scope-box{padding:11px 13px;background:#f6f2fa;border-left:3px solid #4f008c;margin:0 0 14px;overflow-wrap:anywhere}.scope-box b{font-size:10px;color:#4f008c}.scope-box p{margin:4px 0;font-size:9px}.metrics{display:flex;margin:0 0 19px;border:1px solid #e9e1ef;border-radius:7px}.metric{width:25%;padding:12px 11px;min-width:0;border-right:1px solid #e9e1ef}.metric:last-child{border:0}.metric span{display:block;font-size:9px;color:#806d90}.metric strong{display:block;font-size:25px;line-height:1.3;color:#4f008c;margin:5px 0}.metric em{font-style:normal;font-size:10px;margin-left:4px}.metric small{display:block;font-size:8px;color:#897597}
-.findings{margin:0 0 18px}.findings>div{display:flex;gap:11px;border-bottom:1px solid #f0eaf4;padding:7px 0}.findings>div>span{font-size:10px;font-weight:700;color:#ff375e;min-width:18px}.findings p{margin:0;font-size:11px;line-height:1.6}
-table{width:100%;border-collapse:collapse;table-layout:auto;font-size:10.5px}thead{display:table-header-group}th{text-align:left;background:#f4eff8;color:#4f008c;font-size:8px;font-weight:700;padding:7px 8px;white-space:nowrap}td{padding:7px 8px;border-bottom:1px solid #eee8f3;vertical-align:top;overflow-wrap:anywhere}td.number{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}small{display:block;color:#8b7797;font-size:8px;font-weight:normal}td small{margin-top:2px}.comparison td{font-size:10px}.coverage{font-size:8px;color:#8c7798;line-height:1.6;margin:11px 0 0;padding-left:9px;border-left:2px solid #ff375e}.empty{padding:20px;text-align:center;color:#8b7797}
-.chart{border:1px solid #ece5f2;border-radius:7px;padding:12px 12px 3px;margin:0 0 13px;break-inside:avoid}.chart-note{font-size:8px;color:#887095;margin:5px 0 7px}.chart-title{font-size:12px;font-weight:700;color:#4f008c}.caption{margin:3px 0 6px;color:#887095;font-size:8px}.legend{display:flex;gap:13px;flex-wrap:wrap;margin:5px 0 3px;font-size:8px;color:#80698e}.legend span{white-space:nowrap;flex:none;display:inline-flex;align-items:center;gap:5px}.legend i{flex:none;min-width:7px;display:inline-block;width:7px;height:7px;border-radius:2px}.chart>svg{display:block;width:100%;height:auto}.trend>svg{margin-top:10px}.two-col{display:flex;gap:18px}.two-col>section{width:50%}.two-col td{padding:5px 8px}.location{max-width:175px}.priority-heading{margin-top:22px}.actions article{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #ede5f2}.actions article>span{color:#ff375e;font-size:13px;font-weight:700;min-width:20px}.actions b{color:#4f008c;font-size:10px}.actions p{margin:3px 0 0;font-size:11px;line-height:1.6}.report-end{margin-top:18px;background:#f7f3fa;border-radius:6px;padding:12px;font-size:9px}.report-end b{color:#4f008c}.report-end p{margin:5px 0;overflow-wrap:anywhere}.notes{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.8}
-footer{position:absolute;left:15mm;right:15mm;bottom:9mm;border-top:1px solid #e9e1ef;padding-top:7px;display:flex;justify-content:space-between;font-size:8px;color:#7e698d}footer small{position:absolute;left:0;top:23px;font-size:7px;color:#9a87a6}
-.focus-page td{padding:5px 8px}.focus-page .actions article{padding:8px 0}.focus-page .report-end{margin-top:12px}
-.executive-focus{background:#f6f2fa;border-radius:6px;padding:12px 14px;margin-top:15px}.executive-focus h2{font-size:13px;margin-bottom:5px}.executive-focus p{font-size:11px;line-height:1.6}
-@media screen{body{background:#eee8f3}.report-page{margin:14px auto;box-shadow:0 4px 20px #33263f20}}
-`;
+export function savePdfDownload(bytes,filename){
+  const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)?.unref?.();
+}
+export async function downloadDashboardPdf(manifest,options){const result=await createDashboardPdf(manifest,options);savePdfDownload(result.bytes,result.filename);return result;}
+
+export function openDashboardExport(options){
+  const manifest=createDashboardExport(options),dialog=document.createElement('dialog');dialog.className='pdf-export-dialog';dialog.setAttribute('aria-label','Download cards and charts as PDF');
+  const choices=type=>manifest.items.filter(i=>i.type===type).map(i=>`<label class="pdf-choice"><input type="checkbox" name="pdf-item" value="${esc(i.id)}" checked><span>${esc(i.label)}</span></label>`).join('');
+  dialog.innerHTML=`<form class="pdf-export-form"><div class="pdf-export-heading"><div><span class="eyebrow">DOWNLOAD PDF</span><h2>Cards & charts</h2></div><button type="button" class="icon-button" data-pdf-close aria-label="Close PDF export">×</button></div><p class="pdf-export-scope">${esc(manifest.title)} · ${esc(manifest.period)}</p><div class="pdf-export-toolbar"><p>Choose the items to include.</p><div><button type="button" class="text-button" data-pdf-all>Select all</button><button type="button" class="text-button" data-pdf-none>Clear</button></div></div><div class="pdf-export-choices"><fieldset><legend>Cards</legend>${choices('card')}</fieldset><fieldset><legend>Charts</legend>${choices('chart')}</fieldset></div><div class="pdf-export-bottom"><p class="pdf-export-status" role="status"></p><button type="button" class="button secondary" data-pdf-close>Cancel</button><button class="button primary" type="submit">Download PDF</button></div></form>`;
+  const form=dialog.querySelector('form'),inputs=[...dialog.querySelectorAll('input')],status=dialog.querySelector('[role=status]'),submit=dialog.querySelector('[type=submit]');let busy=false,result=null;
+  const count=()=>{const ids=new Set(inputs.filter(i=>i.checked).map(i=>i.value)),chosen=manifest.items.filter(i=>ids.has(i.id));submit.disabled=!ids.size;status.textContent=`${chosen.filter(i=>i.type==='card').length} cards · ${chosen.filter(i=>i.type==='chart').length} charts`;};
+  dialog.addEventListener('change',count);
+  dialog.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||busy)return;if(b.hasAttribute('data-pdf-close'))dialog.close();if(b.hasAttribute('data-pdf-all')||b.hasAttribute('data-pdf-none')){inputs.forEach(i=>i.checked=b.hasAttribute('data-pdf-all'));count();}});
+  dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();if(busy)return;busy=true;form.setAttribute('aria-busy','true');dialog.querySelectorAll('button,input').forEach(el=>el.disabled=true);status.textContent='Preparing PDF…';
+    try{const selected=selectExportItems(manifest,inputs.filter(i=>i.checked).map(i=>i.value));result=await downloadDashboardPdf(selected,{onProgress:(n,total)=>status.textContent=`Preparing charts ${n} of ${total}…`});dialog.close();}
+    catch(error){busy=false;form.removeAttribute('aria-busy');dialog.querySelectorAll('button,input').forEach(el=>el.disabled=false);status.textContent=error.message;submit.disabled=!inputs.some(i=>i.checked);}
+  });
+  return new Promise(resolve=>{dialog.addEventListener('close',()=>{dialog.remove();resolve(result);},{once:true});document.body.append(dialog);count();dialog.showModal();});
+}

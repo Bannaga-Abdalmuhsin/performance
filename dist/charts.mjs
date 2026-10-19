@@ -1,5 +1,5 @@
-import {num,summarize} from './core.mjs?v=20261018labels';
-import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261018labels';
+import {num,summarize} from './core.mjs?v=20261019pdf';
+import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261019pdf';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -57,10 +57,10 @@ function segmented(values,x,y){
 }
 function legend(series,lines=[]){return `<div class="bi-legend">${series.map((s,i)=>`<span><i style="background:${s.color||CHART_COLORS[i]}"></i>${esc(s.name)}</span>`).join('')}${lines.map(l=>`<span><i class="line" style="--legend-color:${l.color}"></i>${esc(l.name)}</span>`).join('')}</div>`;}
 function tools(){return '<div class="bi-tools"><button class="bi-tool" data-action="chart-download" title="Download chart as SVG" aria-label="Download chart as SVG"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg></button><button class="bi-tool" data-action="chart-expand" title="Expand chart" aria-label="Expand chart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button></div>';}
-function panel({id,title,data,svg,kind='combo',note='',className='',legendLines=true,scrollHeight,fit=false}){
+function panel({id,title,data,svg,kind='combo',className='',legendLines=true,showLegend=true,scrollHeight,fit=false}){
   const wide=!fit&&kind==='combo'&&data.labels.length>8;
   const scrollStyle=[scrollHeight?`max-height:${scrollHeight}px`:null,wide?`--chart-wide-width:${Math.max(760,data.labels.length*92+145)}px`:null].filter(Boolean).join(';');
-  return `<section class="panel bi-panel ${className}" data-chart-id="${id}" data-chart-kind="${kind}"><div class="panel-title"><div><h2>${esc(title)}</h2></div>${tools()}</div>${legend(data.series,legendLines?data.lines||[]:[])}<div class="bi-scroll ${wide?'bi-wide':''}"${scrollStyle?` style="${scrollStyle}"`:''}>${svg}</div>${wide?'<div class="bi-scroll-hint">Scroll to explore every category <span>↔</span></div>':''}${note?`<p class="bi-note">${esc(note)}</p>`:''}</section>`;
+  return `<section class="panel bi-panel ${className}" data-chart-id="${id}" data-chart-kind="${kind}"><div class="panel-title"><div><h2>${esc(title)}</h2></div>${tools()}</div>${showLegend?legend(data.series,legendLines?data.lines||[]:[]):''}<div class="bi-scroll ${wide?'bi-wide':''}"${scrollStyle?` style="${scrollStyle}"`:''}>${svg}</div></section>`;
 }
 function groupTip(data,index){return `${data.labels[index]}\n${data.series.map(s=>`${s.name}: ${n(s.values[index],data.unit==='hours'?1:0)}${data.unit==='hours'?' hrs':' tickets'}`).join('\n')}${data.lines?.length?'\n'+data.lines.map(l=>l.name+': '+pct(l.values[index])).join('\n'):''}`;}
 
@@ -71,11 +71,11 @@ export function comparisonData(report,field){
   if(report.id==='overview'&&field==='duration_bucket')lines.push({name:'Duration change',color:AMBER,values:groups.map(g=>g.durationChange)});
   return {labels:groups.map(g=>g.name),series:report.series.slice(0,periods).map((s,i)=>({name:seriesName(s),color:CHART_COLORS[i],values:groups.map(g=>g.series[i]?.tickets??null)})),lines,field,unit:'tickets'};
 }
-export function comboSvg(data,{stacked=false,label='',width}={}){
+export function comboSvg(data,{stacked=false,label='',width,axisScale,changeScale,showValues=data.labels.length<=8}={}){
   if(!data.labels.length)return emptySvg(label);
   const w=width||Math.max(760,data.labels.length*92+145),h=365,l=65,r=data.lines?.length?83:27,t=34,b=96,pw=w-l-r,ph=h-t-b,gap=pw/data.labels.length;
   const totals=data.labels.map((_,i)=>data.series.reduce((a,s)=>a+(s.values[i]||0),0));
-  const scale=countScale(stacked?totals:data.series.flatMap(s=>s.values)),percent=percentScale((data.lines||[]).flatMap(s=>s.values));
+  const scale=axisScale||countScale(stacked?totals:data.series.flatMap(s=>s.values)),percent=changeScale||percentScale((data.lines||[]).flatMap(s=>s.values));
   const x=i=>l+gap*(i+.5),y=v=>t+ph-v/scale.max*ph,yp=v=>t+ph-(v-percent.min)/(percent.max-percent.min)*ph;
   let svg=svgStart(w,h,label)+`<text class="bi-axis-title" x="${l}" y="16">${data.unit==='hours'?'RESTORATION HOURS':'TICKETS'}</text>`;
   if(data.lines?.length)svg+=`<text class="bi-axis-title" x="${w-8}" y="16" text-anchor="end">CHANGE %</text>`;
@@ -86,7 +86,7 @@ export function comboSvg(data,{stacked=false,label='',width}={}){
     data.series.forEach((s,j)=>{const value=s.values[i];if(!num(value))return;
       const bx=stacked?x(i)-barW/2:x(i)-cluster/2+j*(barW+4),by=stacked?y(stack+value):y(value),height=value/scale.max*ph;
       bars+=`<rect class="bi-point" data-series-index="${j}" x="${bx}" y="${by}" width="${Math.max(1,barW)}" height="${Math.max(0,height)}" rx="${stacked?1:3}" fill="${s.color||CHART_COLORS[j]}"/>`;
-      if(!stacked&&data.labels.length<=8&&value>0)bars+=`<text class="bi-value" x="${bx+barW/2}" y="${Math.max(t+5,by-7)}" text-anchor="middle">${compact(value)}</text>`;
+      if(!stacked&&showValues&&value>0)bars+=`<text class="bi-value" x="${bx+barW/2}" y="${Math.max(t+5,by-7)}" text-anchor="middle">${compact(value)}</text>`;
       stack+=value;
     });
     if(stacked&&stack>0)bars+=`<text class="bi-value" x="${x(i)}" y="${Math.max(t+5,y(stack)-8)}" text-anchor="middle">${compact(stack)}</text>`;
@@ -99,10 +99,10 @@ export function comboSvg(data,{stacked=false,label='',width}={}){
   }}
   return svg+'</svg>';
 }
-export function horizontalSvg(data,{label=''}={}){
+export function horizontalSvg(data,{label='',axisScale}={}){
   if(!data.labels.length)return emptySvg(label);
   const w=800,l=165,r=65,t=28,b=45,rowH=Math.max(48,data.series.length*13+18),h=t+b+rowH*data.labels.length,pw=w-l-r;
-  const scale=countScale(data.series.flatMap(s=>s.values));let svg=svgStart(w,h,label);
+  const scale=axisScale||countScale(data.series.flatMap(s=>s.values));let svg=svgStart(w,h,label);
   for(let i=0;i<=4;i++){const xx=l+pw*i/4;svg+=`<line x1="${xx}" x2="${xx}" y1="${t}" y2="${h-b}" stroke="${GRID}" stroke-dasharray="3 5"/><text x="${xx}" y="${h-b+27}" text-anchor="middle">${compact(scale.max*i/4)}</text>`;}
   data.labels.forEach((name,i)=>{const yy=t+i*rowH+7,tip=groupTip(data,i);let bars=`<text class="bi-category" x="${l-18}" y="${yy+rowH/2-3}" text-anchor="end">${esc(name.length>21?name.slice(0,20)+'…':name)}</text>`;
     data.series.forEach((s,j)=>{const value=s.values[i];if(!num(value))return;const bh=10,bw=value/scale.max*pw,by=yy+j*13;bars+=`<rect x="${l}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="${s.color||CHART_COLORS[j]}"/><text class="bi-value" x="${l+bw+9}" y="${by+10}">${compact(value)}</text>`;});
@@ -179,27 +179,88 @@ export function createChartExport(svg,title,items=[]){
   const top=y+23,nested=svg.replace('<svg ',`<svg x="0" y="${top}" `);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h+top}" width="${w}" height="${h+top}"><rect width="100%" height="100%" fill="white"/><text x="28" y="31" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:18px;font-weight:650;fill:#4f008c">${esc(title)}</text>${keys}${nested}</svg>`;
 }
-function kpis(report,state,meta){
-  const now=report.now.summary,prior=report.prev.summary,reference=seriesName(report.prev),area=areaData(report,state,meta),spark=area.series[0].values;
-  return `<div class="bi-kpis"><article class="bi-kpi-value featured"><div class="bi-kpi-eyebrow">No. of tickets KPI<span class="bi-pill">${report.definition.impact}</span></div><div class="bi-kpi-number">${n(now?.tickets)}<small>tickets</small></div><div class="bi-kpi-reference">${n(prior?.tickets)} in ${esc(reference)}</div>${sparkline(spark,'#e7b5f2')}<div class="bi-kpi-foot">Recorded tickets · ${n(now?.distinctTickets)} distinct ticket numbers</div></article><article class="bi-kpi-ring"><div class="bi-kpi-eyebrow">Ticket change</div><div class="bi-ring-body">${donutSvg(report.ticketChange,'Ticket change')}<div><b class="${!num(report.ticketChange)||report.ticketChange===0?'neutral':report.ticketChange<0?'good':'bad'}">${report.ticketChange<0?'Improved':report.ticketChange>0?'Increased':num(report.ticketChange)?'No change':'Unavailable'}</b><span>vs ${esc(reference)}</span>${num(report.ticketChange)&&Math.abs(report.ticketChange)>100?'<small>Ring capped at 100%</small>':''}</div></div></article><article class="bi-kpi-value"><div class="bi-kpi-eyebrow">Duration KPI<span class="bi-unit-tag">HOURS</span></div><div class="bi-kpi-number">${hours(now?.durationMinutes)}<small>hrs</small></div><div class="bi-kpi-reference">${hours(prior?.durationMinutes)} hrs in ${esc(reference)}</div><div class="bi-kpi-measure"><span class="bi-measure-dot"></span>${n(now?.durationCount)} recorded · ${n(now?.missingDuration)} missing</div><div class="bi-kpi-foot">Recorded restoration minutes ÷ 60</div></article><article class="bi-kpi-ring"><div class="bi-kpi-eyebrow">Duration change</div><div class="bi-ring-body">${donutSvg(report.durationChange,'Duration change')}<div><b class="${!num(report.durationChange)||report.durationChange===0?'neutral':report.durationChange<0?'good':'bad'}">${report.durationChange<0?'Improved':report.durationChange>0?'Increased':num(report.durationChange)?'No change':'Unavailable'}</b><span>vs ${esc(reference)}</span>${num(report.durationChange)&&Math.abs(report.durationChange)>100?'<small>Ring capped at 100%</small>':''}</div></div></article></div>`;
+
+export function dashboardCards(report,state,meta){
+  const s=report.now.summary;
+  return [
+    {id:'card-tickets',label:'No. of tickets KPI',value:n(s?.tickets),unit:'tickets',kind:'value',featured:true,pill:report.definition.impact,spark:areaData(report,state,meta).series[0].values},
+    {id:'card-ticket-change',label:'Ticket change',value:pct(report.ticketChange),metric:report.ticketChange,kind:'ring'},
+    {id:'card-duration',label:'Duration KPI',value:hours(s?.durationMinutes),unit:'hrs',kind:'value'},
+    {id:'card-duration-change',label:'Duration change',value:pct(report.durationChange),metric:report.durationChange,kind:'ring'},
+    {id:'card-sites',label:'COWs with tickets',value:n(s?.sites),kind:'support'},
+    {id:'card-repeat-sites',label:'COWs with 3+ TTs',value:n(s?.repeatSites),kind:'support'},
+    {id:'card-mttr',label:'MTTR',value:hours(s?.mttr),unit:'hrs',kind:'support'},
+    {id:'card-repeat-rate',label:'Repeat rate (3+ TTs)',value:n(s?.repeatRate,1),unit:'%',kind:'support'}
+  ];
 }
-function comparisonPanel(report,field,title,kind='combo',className=''){
-  let data=comparisonData(report,field);
-  let svg;
+function direction(value){return !num(value)?'Unavailable':value<0?'Improved':value>0?'Increased':'No change';}
+function renderKpis(cards){
+  return `<div class="bi-kpis">${cards.slice(0,4).map(c=>c.kind==='ring'
+    ?`<article class="bi-kpi-ring" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}</div><div class="bi-ring-body">${donutSvg(c.metric,c.label)}<div><b class="${!num(c.metric)||c.metric===0?'neutral':c.metric<0?'good':'bad'}">${direction(c.metric)}</b></div></div></article>`
+    :`<article class="bi-kpi-value ${c.featured?'featured':''}" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}${c.pill?`<span class="bi-pill">${esc(c.pill)}</span>`:''}</div><div class="bi-kpi-number">${esc(c.value)}${c.unit?`<small>${esc(c.unit)}</small>`:''}</div>${c.spark?sparkline(c.spark,'#e7b5f2'):''}</article>`).join('')}</div>`;
+}
+export function renderSupportingMetrics(report,state,meta){
+  return `<div class="report-metrics bi-supporting-metrics">${dashboardCards(report,state,meta).slice(4).map(c=>`<div data-export-card="${c.id}"><span>${esc(c.label)}</span><b>${esc(c.value)}${c.unit?` <small>${esc(c.unit)}</small>`:''}</b></div>`).join('')}</div>`;
+}
+export function cardSvg(c){
+  const w=340,h=c.kind==='support'?108:160,ink=c.featured?'white':INK,muted=c.featured?'#e1d1ec':MUTED;
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect x="1" y="1" width="${w-2}" height="${h-2}" rx="15" fill="${c.featured?'#4f008c':'white'}" stroke="${c.featured?'#4f008c':'#e9e0ef'}"/><g style="font-family:Inter,Segoe UI,Arial,sans-serif"><text x="24" y="32" style="font-size:13px;font-weight:600;fill:${muted}">${esc(c.label)}</text>`;
+  if(c.pill)svg+=`<text x="315" y="32" text-anchor="end" style="font-size:12px;fill:#e1d1ec">${esc(c.pill)}</text>`;
+  if(c.kind==='ring'){
+    const nested=donutSvg(c.metric,c.label).replace('<svg ','<svg x="18" y="31" width="124" height="124" ');
+    svg+=nested+`<text x="154" y="102" style="font-size:15px;font-weight:600;fill:${!num(c.metric)||c.metric===0?MUTED:c.metric<0?'#008f7c':'#dc4264'}">${esc(direction(c.metric))}</text>`;
+  }else{
+    svg+=`<text x="24" y="${c.kind==='support'?82:91}" style="font-size:${c.value.length>10?32:40}px;font-weight:650;letter-spacing:-1px;fill:${ink}">${esc(c.value)}${c.unit?`<tspan style="font-size:14px;letter-spacing:0;font-weight:400;fill:${muted}"> ${esc(c.unit)}</tspan>`:''}</text>`;
+    if(c.spark)svg+=sparkline(c.spark,'#e7b5f2').replace('<svg ','<svg x="24" y="111" width="180" height="32" ');
+  }
+  return svg+'</g></svg>';
+}
+function comparisonChart(report,field,title,kind='combo',className=''){
+  let data=comparisonData(report,field),svg;
   if(kind==='severity-bar'){data=durationSeverityData(report);svg=horizontalSvg(data,{label:title});}
   else if(kind==='bar'){
     if(field==='duration_bucket'){const groups=comparisonGroups(report,field);data={labels:groups.map(g=>g.name),series:[{name:seriesName(report.now),color:CHART_COLORS[0],values:groups.map(g=>g.series[0]?.tickets??null)}],lines:[],field,unit:'tickets'};}
     else data={...data,lines:[]};
     svg=horizontalSvg(data,{label:title});
   }else svg=comboSvg(data,{label:title});
-  return panel({id:report.id+'-'+field,title,data,svg,kind,className,scrollHeight:kind==='bar'&&data.labels.length>8?445:undefined});
+  return {id:report.id+'-'+field,title,data,svg,kind,className,scrollHeight:kind==='bar'&&data.labels.length>8?445:undefined};
 }
-function regionPanel(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return `<section class="panel bi-panel bi-region" data-chart-id="${report.id}-region-${metric}" data-chart-kind="line"><div class="panel-title"><div><h2>${title}</h2></div>${tools()}</div><div class="bi-scroll">${regionalSvg(data,{label:title})}</div></section>`;}
-function changePanel(report){const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse(),values=chronological.map(s=>s.summary?.tickets??null),data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:'Period change',color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};return panel({id:report.id+'-change-kpi',title:'Ticket performance KPI',data,svg:comboSvg(data,{label:'Ticket performance KPI'}),kind:'combo'});}
+function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
+function performanceChart(report){const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse(),values=chronological.map(s=>s.summary?.tickets??null),data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:'Period change',color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};return {id:report.id+'-change-kpi',title:'Ticket performance KPI',data,svg:comboSvg(data,{label:'Ticket performance KPI'}),kind:'combo'};}
+export function dashboardSections(report,state,meta){
+  const p=CHART_PLANS[report.id],sections=[];
+  const add=(id,layout,charts)=>{if(charts.length)sections.push({id,layout,charts});};
+  const annual=[];
+  if(p.annualTickets){const data=yearMonthData(report,state,meta,'tickets');annual.push({id:report.id+'-annual-tickets',title:'Monthly ticket volume by year',data,svg:comboSvg(data,{label:'Monthly ticket volume by year',width:950}),kind:'combo',fit:true});}
+  if(p.annualDuration){const data=yearMonthData(report,state,meta,'hours');annual.push({id:report.id+'-annual-duration',title:'MoM duration KPI',data,svg:comboSvg(data,{label:'MoM duration KPI',stacked:true,width:950}),kind:'stacked-combo',fit:true});}
+  add('annual',annual.length>1?'two':'one',annual);
+  if(p.area){const area=areaData(report,state,meta),funnel=funnelData(report);add('trend','area-row',[
+    {id:report.id+'-ticket-trend',title:'Tickets volume KPI trend',data:area,svg:areaSvg(area,{label:'Tickets volume KPI trend',id:'area-'+report.id}),kind:'area'},
+    {id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Age distribution'}),kind:'funnel'}
+  ]);}
+  const priorities=[];if(p.severity)priorities.push(comparisonChart(report,'severity','Severity TTs comparison'));if(p.label)priorities.push(comparisonChart(report,'site_label','Sites Label TTs comparison'));
+  add('priorities',p.severity?'two':'one',priorities);
+  add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
+  add('root-causes','one',[comparisonChart(report,'root_cause','Top root cause TTs comparison',p.root,'bi-root-chart')]);
+  add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);
+  if(p.changeKpi)add('performance','one',[performanceChart(report)]);
+  return sections;
+}
+export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}
+export function exportChartParts(chart,{maxCategories=12,maxRows=7}={}){
+  const horizontal=['bar','severity-bar'].includes(chart.kind),combo=['combo','stacked-combo'].includes(chart.kind),limit=horizontal?maxRows:maxCategories;
+  if((!horizontal&&!combo)||chart.data.labels.length<=limit)return [{...chart,part:1,partCount:1}];
+  const data=chart.data,totals=data.labels.map((_,i)=>data.series.reduce((n,s)=>n+(s.values[i]||0),0));
+  const axisScale=countScale(chart.kind==='stacked-combo'?totals:data.series.flatMap(s=>s.values)),changeScale=percentScale((data.lines||[]).flatMap(s=>s.values));
+  const parts=[];
+  for(let start=0;start<data.labels.length;start+=limit){
+    const slice={...data,labels:data.labels.slice(start,start+limit),series:data.series.map(s=>({...s,values:s.values.slice(start,start+limit)})),lines:(data.lines||[]).map(s=>({...s,values:s.values.slice(start,start+limit)}))};
+    const part=parts.length+1,partCount=Math.ceil(data.labels.length/limit),title=`${chart.title} (${part}/${partCount})`;
+    const svg=horizontal?horizontalSvg(slice,{label:title,axisScale}):comboSvg(slice,{label:title,stacked:chart.kind==='stacked-combo',axisScale,changeScale,showValues:data.labels.length<=8});
+    parts.push({...chart,data:slice,svg,title,part,partCount,axisScale,changeScale,startIndex:start});
+  }
+  return parts;
+}
 export function renderChartBoard(report,state,meta){
-  const plan=CHART_PLANS[report.id];let hero='';
-  if(plan.annualTickets||plan.annualDuration){let charts='';if(plan.annualTickets){const data=yearMonthData(report,state,meta,'tickets');charts+=panel({id:report.id+'-annual-tickets',title:'Monthly ticket volume by year',data,svg:comboSvg(data,{label:'Monthly ticket volume by year',width:950}),kind:'combo',fit:true});}if(plan.annualDuration){const data=yearMonthData(report,state,meta,'hours');charts+=panel({id:report.id+'-annual-duration',title:'MoM duration KPI',data,svg:comboSvg(data,{label:'Monthly restoration hours by year',stacked:true,width:950}),kind:'stacked-combo',fit:true});}hero+=`<div class="bi-chart-row ${plan.annualTickets?'two':'one'}">${charts}</div>`;}
-  if(plan.area){const data=areaData(report,state,meta),area=panel({id:report.id+'-ticket-trend',title:'Tickets volume KPI trend',data,svg:areaSvg(data,{label:'Tickets volume KPI trend',id:'area-'+report.id}),kind:'area'});const funnel=funnelData(report);hero+=`<div class="bi-chart-row area-row">${area}${panel({id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Ticket age distribution'}),kind:'funnel',note:report.now.summary?.missingDuration?`${n(report.now.summary.missingDuration)} missing durations are excluded from age bands.`:''})}</div>`;}
-  let priorities='';if(plan.severity)priorities+=comparisonPanel(report,'severity','Severity TTs comparison');if(plan.label)priorities+=comparisonPanel(report,'site_label','Sites Label TTs comparison');
-  return `${kpis(report,state,meta)}${hero}<div class="bi-chart-row ${plan.severity?'two':'one'}">${priorities}</div><div class="bi-chart-row two regional-row">${regionPanel(report,'tickets')}${regionPanel(report,'duration')}</div>${comparisonPanel(report,'root_cause','Top root cause TTs comparison',plan.root,'bi-root-chart')}<div class="bi-chart-row two detail-row">${comparisonPanel(report,'district','District TTs comparison',plan.district)}${comparisonPanel(report,'duration_bucket','TT age group distribution',plan.duration)}</div>${plan.changeKpi?`<div class="bi-chart-row one">${changePanel(report)}</div>`:''}<div class="bi-chart-key"><span><i style="background:${TEAL}"></i>Ticket change</span><span><i style="background:${AMBER}"></i>Duration change</span><small>Select a chart category to inspect its records. Open any chart for a larger view.</small></div>`;
+  return renderKpis(dashboardCards(report,state,meta))+dashboardSections(report,state,meta).map(s=>`<div class="bi-chart-row ${s.layout}">${s.charts.map(panel).join('')}</div>`).join('')+`<div class="bi-chart-key"><span><i style="background:${TEAL}"></i>Ticket change</span><span><i style="background:${AMBER}"></i>Duration change</span></div>`;
 }

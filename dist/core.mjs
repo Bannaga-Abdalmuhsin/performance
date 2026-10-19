@@ -1,6 +1,7 @@
 export const FIELDS = ['id','ticket_number','site_id','site_name','region','district','city','vendor','severity','service_impact','site_label','created_at','created_date','cleared_at','referred_at','impact_start','impact_finish','duration_minutes','sla_minutes','sla_breached','sla_excluded','exclusion_reason','parent_tt','root_cause','repair_details','cleared_group','source_row','quality_flags','source_key','restoration_days','duration_text','duration_dax_minutes'];
 export const IMPORT_FIELDS = [...FIELDS,'source_data','deduplication'];
 export const DEDUPLICATION_POLICY = 'ticket-richest-v1';
+export const REPEAT_TT_THRESHOLD = 3;
 const technicalFields=new Set(['#','id','source_key','source_row','source_data','deduplication','quality_flags','import_id','updated_at']);
 const cellError=/^#(?:ERR|REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!|SPILL!|CALC!)/i;
 export function rowRichness(row) {
@@ -34,11 +35,12 @@ export function summarize(records) {
   const breached=sla.filter(r=>r.sla_breached).length;
   const sites=new Map();
   for(const r of records) if(r.site_id) sites.set(r.site_id,(sites.get(r.site_id)||0)+1);
+  const repeatSites=[...sites.values()].filter(n=>n>=REPEAT_TT_THRESHOLD).length;
   const validImpact=records.filter(r=>r.impact_start&&r.impact_finish&&r.impact_finish>=r.impact_start);
   return { tickets:records.length, distinctTickets:new Set(records.map(r=>r.ticket_number)).size, rows:records.length,
     durationMinutes:sum(durations), durationCount:durations.length,
     mttr:durations.length?sum(durations)/durations.length:null,
-    sites:sites.size, repeatSites:[...sites.values()].filter(n=>n>=2).length,
+    sites:sites.size, repeatSites, repeatRate:sites.size?repeatSites/sites.size*100:null,
     breached, slaEligible:sla.length, slaCompliance:sla.length?(sla.length-breached)/sla.length*100:null,
     slaExcluded:records.filter(r=>r.sla_excluded).length,
     uncleared:records.filter(r=>!r.cleared_at).length,

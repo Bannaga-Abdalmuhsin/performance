@@ -2,12 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {buildReport} from '../dist/analysis.mjs';
+import {renderReport} from '../dist/report.mjs';
 import {CHART_PLANS,comparisonData,yearMonthData,areaData,funnelData,durationSeverityData,comboSvg,horizontalSvg,areaSvg,regionalSvg,regionalData,funnelSvg,donutSvg,countScale,percentScale,renderChartBoard,createChartExport} from '../dist/charts.mjs';
 const profiles=JSON.parse(readFileSync(new URL('../dist/report-profiles.json',import.meta.url)));
 const state={period:'2026-08',year:2026,week:35,scope:'all'};
 const meta={min_date:'2024-01-01',max_date:'2026-08-31'};
 const r=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',parent_tt:null,root_cause:'Generator Issue',duration_minutes:60,site_id:'COW1',region:'Central',district:'Riyadh City',site_label:'VIP',severity:'High',quality_flags:[],...extra});
 const rows=[r('a','2026-08-24'),r('b','2026-08-25',{duration_minutes:180}),r('c','2026-08-17',{duration_minutes:120}),r('d','2026-08-10'),r('e','2025-08-24',{duration_minutes:240}),r('f','2024-08-25',{duration_minutes:360})];
+test('six dashboards omit compliance and comments beneath cards and chart panels',()=>{
+ for(const id of Object.keys(CHART_PLANS)){
+  const report=buildReport(rows,state,profiles,meta,id),html=renderReport(report,state,meta);
+  for(const removed of ['SLA compliance','eligible','Recorded tickets','distinct ticket numbers','Within source date range','bi-kpi-foot','bi-kpi-reference','bi-scroll-hint','bi-note'])assert.ok(!html.includes(removed),id+' '+removed);
+  assert.ok(html.includes('COWs with 3+ TTs'));assert.ok(html.includes('Repeat rate (3+ TTs)'));assert.ok(html.includes('MTTR'));assert.equal((html.match(/data-export-card=/g)||[]).length,8);
+ }
+});
 test('chart families match the five source pages and extend consistently to YoY',()=>{
  const expected={
   'weekly-sa':['area','funnel','stacked-combo','line','bar','combo'],

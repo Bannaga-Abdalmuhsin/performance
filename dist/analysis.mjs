@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup} from './core.mjs?v=20261018weeks';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup} from './core.mjs?v=20261019pdf';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
