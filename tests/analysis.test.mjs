@@ -53,7 +53,7 @@ test('YoY compares matching YTD days and handles leap-day comparators',()=>{
 });
 test('visual count filters do not remove records from page KPIs',()=>{
  const records=[r('a','2026-08-31',{root_cause:'One ticket'}),r('b','2026-08-31'),r('c','2026-08-31'),r('d','2026-08-24',{root_cause:'Previous only'})];
- const report=buildReport(records,state,profiles,meta,'weekly-sa');assert.equal(report.now.summary.tickets,3);assert.deepEqual(comparisonGroups(report,'root_cause').map(x=>x.name),['Generator Issue','One ticket','Previous only']);
+ const report=buildReport(records,state,profiles,meta,'weekly-sa');assert.equal(report.now.summary.tickets,3);assert.deepEqual(comparisonGroups(report,'root_cause').map(x=>x.name),['Generator','Others']);assert.equal(comparisonGroups(report,'root_cause').reduce((n,g)=>n+g.series[0].tickets,0),3);
 });
 test('zero-baseline and unavailable-period comparisons are explicit',()=>{
  assert.equal(change(2,0),100);assert.equal(change(0,0),0);assert.equal(change(0,2),-100);assert.equal(change(null,2),null);

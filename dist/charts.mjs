@@ -1,5 +1,5 @@
-import {num,summarize} from './core.mjs?v=20261019pdf';
-import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261019pdf';
+import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261019rootgroups';
+import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261019rootgroups';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -241,14 +241,14 @@ export function dashboardSections(report,state,meta){
   const priorities=[];if(p.severity)priorities.push(comparisonChart(report,'severity','Severity TTs comparison'));if(p.label)priorities.push(comparisonChart(report,'site_label','Sites Label TTs comparison'));
   add('priorities',p.severity?'two':'one',priorities);
   add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
-  add('root-causes','one',[comparisonChart(report,'root_cause','Top root cause TTs comparison',p.root,'bi-root-chart')]);
+  add('root-causes','one',[comparisonChart(report,'root_cause','Root cause TTs comparison',p.root,'bi-root-chart')]);
   add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);
   if(p.changeKpi)add('performance','one',[performanceChart(report)]);
   return sections;
 }
 export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}
 export function exportChartParts(chart,{maxCategories=12,maxRows=7}={}){
-  const horizontal=['bar','severity-bar'].includes(chart.kind),combo=['combo','stacked-combo'].includes(chart.kind),limit=horizontal?maxRows:maxCategories;
+  const horizontal=['bar','severity-bar'].includes(chart.kind),combo=['combo','stacked-combo'].includes(chart.kind),limit=horizontal?maxRows:chart.data.field==='root_cause'?Math.max(ROOT_CAUSE_GROUPS.length,maxCategories):maxCategories;
   if((!horizontal&&!combo)||chart.data.labels.length<=limit)return [{...chart,part:1,partCount:1}];
   const data=chart.data,totals=data.labels.map((_,i)=>data.series.reduce((n,s)=>n+(s.values[i]||0),0));
   const axisScale=countScale(chart.kind==='stacked-combo'?totals:data.series.flatMap(s=>s.values)),changeScale=percentScale((data.lines||[]).flatMap(s=>s.values));

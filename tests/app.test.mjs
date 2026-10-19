@@ -3,6 +3,7 @@
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
+import {ROOT_CAUSE_GROUPS} from '../dist/core.mjs';
 class Element {
  constructor(){this.options=[{}];this.innerHTML='';this.value='';this.dataset={};this.hidden=false;this.disabled=false;this.textContent='';this.listeners={};this.classList={toggle(){},add(){},remove(){},contains(){return false;}};}
  querySelectorAll(){return [];}querySelector(){return new Element();}addEventListener(event,fn){this.listeners[event]=fn;}setAttribute(){}focus(){}showModal(){this.open=true;}close(){this.open=false;}
@@ -47,4 +48,15 @@ test('All weeks survives year and page changes; vendor choices group Others and 
  const vendors=elements.get('#vendor-filter').innerHTML;for(const vendor of ['Nokia','Ericsson','Huawei','Others'])assert.ok(vendors.includes(`value="${vendor}"`));assert.ok(!vendors.includes('NSN'));
  elements.get('#year-filter').listeners.change({target:{value:'2026'}});elements.get('#vendor-filter').listeners.change({target:{value:'Others'}});assert.match(elements.get('#content').innerHTML,/1<small>tickets/);assert.equal(mixed.records[0].vendor,'NSN');
  assert.equal(elements.get('#sidebar-source').textContent,'');assert.match(readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'),/class="sidebar-source" hidden/);
+});
+
+test('root-cause categories drive filters, ticket drill-down and subsequent uploads',async()=>{
+ const source={meta:{...dataset.meta,record_count:3},records:[record('TTROOT1',{root_cause:'Gen #2 Engine - Fuel Pump Defective'}),record('TTROOT2',{root_cause:'Fuel Tank - Diesel Empty'}),record('TTROOT3',{root_cause:'Door Issue'})]};
+ Object.assign(app.state,{followLatest:false,period:'2026-08',year:2026,root_cause:'all',region:'all',district:'all',vendor:'all',site_id:'all',duration_bucket:'all',severity:'all',site_label:'all'});app.setData(source,'database');app.navigate('overview');
+ const choices=elements.get('#cause-filter').innerHTML;for(const name of ROOT_CAUSE_GROUPS)assert.ok(choices.includes(`value="${name}"`));assert.equal((choices.match(/<option /g)||[]).length,15);assert.ok(!choices.includes('Fuel Pump Defective'));
+ const button=new Element();button.dataset={cause:'Generator'};for(const listener of events.click)await listener({target:{closest:selector=>selector==='button,a'?button:null}});
+ assert.equal(app.state.view,'tickets');assert.equal(app.state.root_cause,'Generator');let html=elements.get('#content').innerHTML;assert.ok(html.includes('TTROOT1'));assert.ok(html.includes('TTROOT2'));assert.ok(!html.includes('TTROOT3'));
+ const detail=new Element();detail.dataset={ticket:'TTROOT1|COW001'};for(const listener of events.click)await listener({target:{closest:selector=>selector==='button,a'?detail:null}});
+ assert.ok(elements.get('#detail-content').innerHTML.includes('Gen #2 Engine - Fuel Pump Defective'));assert.ok(elements.get('#detail-content').innerHTML.includes('Root cause category'));
+ app.setData({...source,meta:{...source.meta,record_count:4},records:[...source.records,record('TTROOT4',{root_cause:'G3 - Engine Minor Problem'})]},'database');html=elements.get('#content').innerHTML;assert.ok(html.includes('TTROOT4'));assert.ok(!html.includes('TTROOT3'));assert.equal(source.records[0].root_cause,'Gen #2 Engine - Fuel Pump Defective');
 });

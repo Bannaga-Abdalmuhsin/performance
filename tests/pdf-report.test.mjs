@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createDashboardExport,selectExportItems,exportChartRows,createDashboardPdf,savePdfDownload,rasterizeSvg} from '../dist/pdf-report.mjs';
 import {REPORTS,buildReport,comparisonGroups,latestReportDate} from '../dist/analysis.mjs';
 import {dashboardCards,dashboardSections} from '../dist/charts.mjs';
+import {ROOT_CAUSE_GROUPS} from '../dist/core.mjs';
 import {PDFDocument,PDFName} from '../dist/assets/vendor/pdf-lib-1.17.1.mjs';
 
 const row=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',root_cause:'Self Cleared',parent_tt:'PR-parent',duration_minutes:60,region:'Central',district:'Riyadh',site_id:'COW1',site_label:'VIP',severity:'High',sla_breached:false,quality_flags:[],...extra});
@@ -46,28 +47,28 @@ test('item selection exports only chosen cards and charts in dashboard order',()
  assert.deepEqual(exportChartRows(selected).flatMap(row=>row.charts).map(c=>c.id),[root.id]);assert.throws(()=>selectExportItems(full,[]),/Select at least one/);assert.throws(()=>selectExportItems(full,['unknown']),/unavailable/);
 });
 test('wide and tall charts include all categories, preserving values and global scales',()=>{
- const source=Array.from({length:37},(_,i)=>row('PR'+i,'2026-08-31',{root_cause:'Cause '+i,district:'District '+i,duration_minutes:i*11}));
+ const source=Array.from({length:37},(_,i)=>row('PR'+i,'2026-08-31',{root_cause:ROOT_CAUSE_GROUPS[i%14],district:'District '+i,duration_minutes:i*11}));
  for(const id of ['overview','weekly-nsa']){
   const selectedRecords=id==='weekly-nsa'?source.map(r=>({...r,service_impact:'No impact'})):source;
   const full=createDashboardExport({...options,records:selectedRecords,state:{...state,view:id}});
   for(const field of ['root_cause','district']){
    const chart=full.items.find(i=>i.id===id+'-'+field).chart,parts=exportChartRows(selectExportItems(full,[chart.id])).flatMap(r=>r.charts);
-   assert.ok(parts.length>1);assert.deepEqual(parts.flatMap(p=>p.data.labels),chart.data.labels);assert.equal(new Set(parts.flatMap(p=>p.data.labels)).size,37);
+   const count=field==='root_cause'?14:37;assert.equal(parts.length,field==='root_cause'?1:id==='weekly-nsa'?6:4);assert.deepEqual(parts.flatMap(p=>p.data.labels),chart.data.labels);assert.equal(new Set(parts.flatMap(p=>p.data.labels)).size,count);
    for(let s=0;s<chart.data.series.length;s++)assert.deepEqual(parts.flatMap(p=>p.data.series[s].values),chart.data.series[s].values);
    for(let s=0;s<(chart.data.lines||[]).length;s++)assert.deepEqual(parts.flatMap(p=>p.data.lines[s].values),chart.data.lines[s].values);
    for(const part of parts){assert.deepEqual(part.axisScale,parts[0].axisScale);assert.deepEqual(part.changeScale,parts[0].changeScale);assert.ok(!/NaN|Infinity|undefined/.test(part.svg));}
-   assert.equal(chart.data.labels.length,37,'source descriptor must not be truncated');
+   assert.equal(chart.data.labels.length,count,'source descriptor must not be truncated');
   }
  }
 });
 test('PDF bytes contain selected cards and complete chart pages, with no print or script action',async()=>{
- const source=Array.from({length:31},(_,i)=>row('PR'+i,'2026-08-31',{root_cause:'Cause '+i}));
+ const source=ROOT_CAUSE_GROUPS.map((root_cause,i)=>row('PR'+i,'2026-08-31',{root_cause}));
  const manifest=createDashboardExport({...options,records:source,selectedIds:['card-repeat-rate','overview-root_cause']}),rendered=[],progress=[];
  const result=await createDashboardPdf(manifest,{rasterize:async svg=>{rendered.push(svg);return png;},assetLoader:async()=>png,onProgress:(n,total)=>progress.push([n,total])});
- assert.equal(Buffer.from(result.bytes).subarray(0,5).toString(),'%PDF-');assert.equal(result.chartPartCount,3);assert.deepEqual(result.exportedIds,['card-repeat-rate','overview-root_cause']);assert.deepEqual(progress,[[1,3],[2,3],[3,3]]);
- const doc=await PDFDocument.load(result.bytes);assert.equal(doc.getPageCount(),result.pageCount);assert.ok(result.pageCount>=2);assert.match(doc.getTitle(),/Monthly Overview/);assert.equal(doc.catalog.get(PDFName.of('OpenAction')),undefined);assert.equal(doc.catalog.get(PDFName.of('AA')),undefined);
+ assert.equal(Buffer.from(result.bytes).subarray(0,5).toString(),'%PDF-');assert.equal(result.chartPartCount,1);assert.deepEqual(result.exportedIds,['card-repeat-rate','overview-root_cause']);assert.deepEqual(progress,[[1,1]]);
+ const doc=await PDFDocument.load(result.bytes);assert.equal(doc.getPageCount(),result.pageCount);assert.equal(result.pageCount,1);assert.match(doc.getTitle(),/Monthly Overview/);assert.equal(doc.catalog.get(PDFName.of('OpenAction')),undefined);assert.equal(doc.catalog.get(PDFName.of('AA')),undefined);
  for(const page of doc.getPages()){assert.ok(Math.abs(page.getWidth()-1190.55)<.01);assert.ok(Math.abs(page.getHeight()-841.89)<.01);}
- const svg=rendered.join('\n');assert.ok(svg.includes('Repeat rate (3+ TTs)'));assert.ok(!svg.includes('No. of tickets KPI'));assert.ok(!svg.includes('SLA compliance'));for(let i=0;i<31;i++)assert.ok(svg.includes('Cause '+i));
+ const svg=rendered.join('\n');assert.ok(svg.includes('Repeat rate (3+ TTs)'));assert.ok(!svg.includes('No. of tickets KPI'));assert.ok(!svg.includes('SLA compliance'));for(const cause of ROOT_CAUSE_GROUPS)assert.ok(svg.includes(cause),cause);
 });
 test('SVG rasterization uses the full chart dimensions, independent of a viewport',async()=>{
  const saved={document:globalThis.document,Image:globalThis.Image},canvases=[],draws=[];

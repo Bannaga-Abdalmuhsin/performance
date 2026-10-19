@@ -28,7 +28,7 @@ test('chart families match the five source pages and extend consistently to YoY'
 });
 test('comparison bar series use the visible periods and independently computed percentages',()=>{
  const report=buildReport(rows,state,profiles,meta,'weekly-sa'),data=comparisonData(report,'root_cause');
- assert.deepEqual(data.labels,['Generator Issue']);assert.deepEqual(data.series.map(s=>s.values),[[2],[1]]);
+ assert.deepEqual(data.labels,['Generator']);assert.deepEqual(data.series.map(s=>s.values),[[2],[1]]);
  assert.equal(data.lines[0].values[0],100);assert.equal(data.lines[1].values[0],100);
 });
 test('weekly area shows real daily zero and leaves outside-coverage days unavailable',()=>{
@@ -55,9 +55,9 @@ test('plot scales and SVGs handle empty, zero, negative change, and missing comp
  for(const id of Object.keys(CHART_PLANS)){const report=buildReport([],state,profiles,meta,id),data=comparisonData(report,'root_cause');for(const svg of [comboSvg(data),horizontalSvg(data),areaSvg(areaData(report,state,meta)),regionalSvg(regionalData(report)),funnelSvg(funnelData(report)),donutSvg(null,'No comparison'),donutSvg(271,'Duration change')]){assert.ok(svg.startsWith('<svg'));assert.ok(!/NaN|Infinity|undefined/.test(svg));assert.ok(!/height="-\d/.test(svg));}}
 });
 test('source labels and tooltips are escaped, categories drill down, and charts can be exported',()=>{
- const report=buildReport([r('x','2026-08-24',{root_cause:'<script>"& injection'})],state,{...profiles,'weekly-sa':{...profiles['weekly-sa'],visuals:{}}},meta,'weekly-sa');
- const svg=comboSvg(comparisonData(report,'root_cause'));
- assert.ok(svg.includes('data-cause="&lt;script&gt;&quot;&amp; injection"'));assert.ok(!svg.includes('<script>'));
+ const report=buildReport([r('x','2026-08-24',{site_label:'<script>"& injection'})],state,{...profiles,'weekly-sa':{...profiles['weekly-sa'],visuals:{}}},meta,'weekly-sa');
+ const svg=comboSvg(comparisonData(report,'site_label'));
+ assert.ok(svg.includes('data-priority="&lt;script&gt;&quot;&amp; injection"'));assert.ok(!svg.includes('<script>'));
  const html=renderChartBoard(report,state,meta);assert.ok(html.includes('data-action="chart-download"'));assert.ok(html.includes('data-action="chart-expand"'));assert.ok(!html.includes('View chart data'));
 });
 test('exported charts include a white background, title and period/line legends',()=>{

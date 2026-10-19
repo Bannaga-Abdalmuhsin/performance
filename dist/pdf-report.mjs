@@ -1,6 +1,6 @@
-import {summarize} from './core.mjs?v=20261019pdf';
-import {REPORTS,buildReport,change} from './analysis.mjs?v=20261019pdf';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261019pdf';
+import {summarize,matchesTicketQuery} from './core.mjs?v=20261019rootgroups';
+import {REPORTS,buildReport,change} from './analysis.mjs?v=20261019rootgroups';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261019rootgroups';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -12,7 +12,7 @@ export function createDashboardExport({records,state,profiles={},meta,generatedA
   const selection={...state,scope:'all'},id=REPORTS[selection.view]?selection.view:REPORTS[selection.reportView]?selection.reportView:'overview';
   const report=buildReport(records,selection,profiles,meta,id);
   if(selection.view==='tickets'&&selection.query){
-    const query=selection.query.toLowerCase(),matches=r=>[r.ticket_number,r.site_id,r.site_name,r.root_cause,r.repair_details].some(v=>String(v||'').toLowerCase().includes(query));
+    const matches=r=>matchesTicketQuery(r,selection.query);
     report.scope=report.scope.filter(matches);report.series=report.series.map(s=>{const rows=s.rows.filter(matches);return {...s,rows,summary:s.covered?summarize(rows):null};});
     [report.now,report.prev]=report.series;report.ticketChange=change(report.now.summary?.tickets,report.prev.summary?.tickets);report.durationChange=change(report.now.summary?.durationMinutes,report.prev.summary?.durationMinutes);
   }

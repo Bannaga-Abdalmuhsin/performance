@@ -10,6 +10,32 @@ export function rowRichness(row) {
 }
 export const VENDOR_GROUPS=['Nokia','Ericsson','Huawei','Others'];
 export function vendorGroup(value){return VENDOR_GROUPS.find(name=>name.toLowerCase()===String(value??'').trim().toLowerCase())||'Others';}
+export const ROOT_CAUSE_GROUPS=['Generator','Rectifier','SCECO','Others','Alarm Cable Issue','ATS Issue','Air Condition Fault','3rd Party Fault','Circuit Breaker','PMR','LINK','Telecom Cables','MDB Issue','Self Cleared'];
+const causeKey=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const causeNames=new Map(ROOT_CAUSE_GROUPS.map(name=>[causeKey(name),name]));
+// Classification is derived for analysis. Never replace a ticket's source detail.
+// Explicit breaker faults take precedence over their equipment family.
+export function rootCauseGroup(value){
+  const key=causeKey(value),canonical=causeNames.get(key);if(canonical)return canonical;
+  if(/\b(?:breakers?|mcb|mccb|acb|cb)\b/.test(key))return 'Circuit Breaker';
+  if(/\b(?:3rd|third)\s+party\b/.test(key))return '3rd Party Fault';
+  if(/\bpmr\b/.test(key))return 'PMR';
+  if(/\bself\s*cleared\b|\bauto\s*restor(?:ed|e)\b/.test(key))return 'Self Cleared';
+  if(/\balarm\b.*\b(?:cables?|wiring)\b|\b(?:cables?|wiring)\b.*\balarm\b/.test(key))return 'Alarm Cable Issue';
+  if(/\bats\d*\b|\bautomatic transfer switch\b/.test(key))return 'ATS Issue';
+  if(/\bmdb\d*\b|\bmain distribution (?:board|panel)\b/.test(key))return 'MDB Issue';
+  if(/\b(?:generator|geneator|genset|gen|fuel|diesel|alternator|radiator)\b|\bg[1-9]\d*\b|\bfan belt\b/.test(key))return 'Generator';
+  if(/\brectifiers?\b|\brec\b/.test(key))return 'Rectifier';
+  if(/\b(?:sceco|seco|sec)\b|\bcommercial power\b|\bpower cut\b|\bblackout\b/.test(key))return 'SCECO';
+  if(/^\s*a\s*\/\s*c\b/i.test(String(value??''))||/^ac\d+\b/.test(key)||/\b(?:hvac|air\s*(?:condition(?:ing|er)?|con)|compressor|condenser|evaporator|thermostat|refrigerant|blower)\b|\bhigh low pressure cut off\b/.test(key))return 'Air Condition Fault';
+  if(/\btelecom (?:cables?|cabes)\b|\b(?:fiber|fibre|cpri|ethernet|jumper|e1)\b|\b(?:rf|if|bbu)\b.*\b(?:cables?|connections?|connectors?)\b|\bpatch cord\b|\bwave guide\b/.test(key))return 'Telecom Cables';
+  if(/\blink\b|\b(?:mw|microwave|los|nlos|rsl|fading|interference|transmission|misalignment|xpic|modem|idu|odu|mmu|sfp|ber)\b|\bre alignment\b/.test(key))return 'LINK';
+  return 'Others';
+}
+export function matchesTicketQuery(row,query){
+  const q=String(query??'').trim().toLowerCase();
+  return !q||[row.ticket_number,row.site_id,row.site_name,row.root_cause,rootCauseGroup(row.root_cause),row.repair_details].some(v=>String(v||'').toLowerCase().includes(q));
+}
 export const num = (v) => typeof v === 'number' && Number.isFinite(v);
 export const sum = (xs) => xs.reduce((a,b)=>a+(num(b)?b:0),0);
 export const monthOf = (r) => r.created_date?.slice(0,7);
@@ -18,13 +44,15 @@ export function percentageChange(current, previous) { return !num(current)||!num
 export function scopeFilter(records, filters={}, profile={}) {
   return records.filter(r=>{
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
-      if(filters[field] && filters[field]!=='all' && (field==='vendor'?vendorGroup(r[field])!==vendorGroup(filters[field]):r[field]!==filters[field])) return false;
+      if(filters[field] && filters[field]!=='all'){
+        const value=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];
+        if(value!==(field==='vendor'?vendorGroup(filters[field]):filters[field]))return false;
+      }
     }
     if(filters.period && monthOf(r)!==filters.period) return false;
     if(filters.duration_bucket && filters.duration_bucket!=='all'){const v=r.duration_minutes,b=!num(v)?'Missing':v>=1440?'>24hrs':v>=480?'08-24hrs':v>=240?'04-08hrs':v>=120?'02-04hrs':'<2hrs';if(b!==filters.duration_bucket)return false;}
     if(filters.query) {
-      const q=filters.query.toLowerCase();
-      if(![r.ticket_number,r.site_id,r.site_name,r.root_cause,r.repair_details].some(v=>String(v||'').toLowerCase().includes(q))) return false;
+      if(!matchesTicketQuery(r,filters.query)) return false;
     }
     return true;
   });
@@ -52,7 +80,7 @@ export function summarize(records) {
 }
 export function groupBy(records, field) {
   const groups=new Map();
-  for(const r of records) { const key=field==='vendor'?vendorGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
+  for(const r of records) { const key=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
   return [...groups].map(([name,rows])=>({name,...summarize(rows),rows})).sort((a,b)=>b.tickets-a.tickets||a.name.localeCompare(b.name));
 }
 export function monthlyTrend(records, period, meta, count=12) {
