@@ -8,10 +8,10 @@ test('vendor groups cover every record and Others combines all remaining labels'
  assert.equal(scopeFilter(rows,{vendor:'Others'}).length,6);assert.equal(scopeFilter(rows,{vendor:'Ericsson'}).length,1);
  const groups=groupBy(rows,'vendor');assert.equal(groups.length,4);assert.equal(groups.reduce((sum,g)=>sum+g.tickets,0),rows.length);assert.equal(groups.find(g=>g.name==='Others').tickets,6);assert.equal(rows[3].vendor,'NSN');
 });
-test('analysis includes parent and all root causes with explicit impact selection',()=>{
+test('analysis excludes parent-linked tickets and retains all root causes with explicit impact selection',()=>{
  const rows=[r(1),r(2,{parent_tt:'TT1'}),r(3,{root_cause:'  TELECOM '}),r(4,{service_impact:'No impact'})];
- assert.deepEqual(scopeFilter(rows,{scope:'powerbi',service_impact:'Outage'},{excluded_root_causes:['Telecom']}).map(x=>x.id),rows.slice(0,3).map(x=>x.id));
- assert.equal(scopeFilter(rows,{scope:'all',service_impact:'all'}).length,4);
+ assert.deepEqual(scopeFilter(rows,{scope:'powerbi',service_impact:'Outage'},{excluded_root_causes:['Telecom']}).map(x=>x.id),[rows[0],rows[2]].map(x=>x.id));
+ assert.equal(scopeFilter(rows,{scope:'all',service_impact:'all'}).length,3);
  assert.equal(scopeFilter(rows,{scope:'all',site_id:'COW999'}).length,0);
 });
 test('Power BI row count, recorded-duration denominator, exemptions, missing values and zero are preserved',()=>{

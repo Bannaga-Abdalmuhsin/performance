@@ -2,6 +2,8 @@ export const FIELDS = ['id','ticket_number','site_id','site_name','region','dist
 export const IMPORT_FIELDS = [...FIELDS,'source_data','deduplication'];
 export const DEDUPLICATION_POLICY = 'ticket-richest-v1';
 export const REPEAT_TT_THRESHOLD = 3;
+export function hasParentTicket(row){return String(row?.parent_tt??row?.['Parent TT']??'').trim()!=='';}
+export function analysisRecords(records){return records.filter(row=>!hasParentTicket(row));}
 const technicalFields=new Set(['#','id','source_key','source_row','source_data','deduplication','quality_flags','import_id','updated_at']);
 const cellError=/^#(?:ERR|REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!|SPILL!|CALC!)/i;
 export function rowRichness(row) {
@@ -43,6 +45,7 @@ export const previousMonth = (m, offset=-1) => { const [y,n]=m.split('-').map(Nu
 export function percentageChange(current, previous) { return !num(current)||!num(previous)||previous===0 ? null : (current-previous)/previous*100; }
 export function scopeFilter(records, filters={}, profile={}) {
   return records.filter(r=>{
+    if(hasParentTicket(r))return false;
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
       if(filters[field] && filters[field]!=='all'){
         const value=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];
@@ -58,6 +61,7 @@ export function scopeFilter(records, filters={}, profile={}) {
   });
 }
 export function summarize(records) {
+  records=analysisRecords(records);
   const durations=records.map(r=>r.duration_minutes).filter(num);
   const sla=records.filter(r=>typeof r.sla_breached==='boolean'&&!r.sla_excluded);
   const breached=sla.filter(r=>r.sla_breached).length;
@@ -80,11 +84,11 @@ export function summarize(records) {
 }
 export function groupBy(records, field) {
   const groups=new Map();
-  for(const r of records) { const key=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
+  for(const r of analysisRecords(records)) { const key=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
   return [...groups].map(([name,rows])=>({name,...summarize(rows),rows})).sort((a,b)=>b.tickets-a.tickets||a.name.localeCompare(b.name));
 }
 export function monthlyTrend(records, period, meta, count=12) {
-  const buckets=new Map(); for(const r of records) { const m=monthOf(r); if(!buckets.has(m))buckets.set(m,[]);buckets.get(m).push(r); }
+  const buckets=new Map(); for(const r of analysisRecords(records)) { const m=monthOf(r); if(!buckets.has(m))buckets.set(m,[]);buckets.get(m).push(r); }
   return Array.from({length:count},(_,i)=>{
     const month=previousMonth(period,i-count+1),covered=month>=meta.min_date?.slice(0,7)&&month<=meta.max_date?.slice(0,7);
     return {month,covered,...(covered?summarize(buckets.get(month)||[]):{tickets:null,durationMinutes:null,mttr:null,slaCompliance:null})};

@@ -1,5 +1,5 @@
-import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261019rootgroups';
-import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261019rootgroups';
+import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261019parenttt';
+import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261019parenttt';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -111,11 +111,12 @@ export function horizontalSvg(data,{label='',axisScale}={}){
 }
 function seriesRows(report){return report.series.map(s=>({name:seriesName(s),color:CHART_COLORS[report.series.indexOf(s)],rows:s.rows}));}
 export function yearMonthData(report,state,meta,metric='hours'){
+  meta={...meta,...report.sourceCoverage};
   const years=[0,1,2].map(n=>Number(state.year||state.period.slice(0,4))-n),months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
   const buckets=new Map();for(const r of report.scope){const key=r.created_date.slice(0,7);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(r);}
   const series=years.map((year,index)=>({name:String(year),color:CHART_COLORS[index],values:months.map(m=>{
     const range=monthRange(year+'-'+m),clip=report.id==='yoy'?report.series[index].range:null;
-    if(range.end<meta.min_date||range.start>meta.max_date||clip&&range.start>clip.end)return null;
+    if(!meta.max_date||range.end<meta.min_date||range.start>meta.max_date||clip&&range.start>clip.end)return null;
     const rows=(buckets.get(year+'-'+m)||[]).filter(r=>!clip||r.created_date<=clip.end),s=summarize(rows);
     return metric==='hours'?s.durationMinutes/60:s.tickets;
   })}));

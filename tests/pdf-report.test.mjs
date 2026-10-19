@@ -6,7 +6,7 @@ import {dashboardCards,dashboardSections} from '../dist/charts.mjs';
 import {ROOT_CAUSE_GROUPS} from '../dist/core.mjs';
 import {PDFDocument,PDFName} from '../dist/assets/vendor/pdf-lib-1.17.1.mjs';
 
-const row=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',root_cause:'Self Cleared',parent_tt:'PR-parent',duration_minutes:60,region:'Central',district:'Riyadh',site_id:'COW1',site_label:'VIP',severity:'High',sla_breached:false,quality_flags:[],...extra});
+const row=(id,date,extra={})=>({id,ticket_number:id,created_date:date,service_impact:'Outage',root_cause:'Self Cleared',parent_tt:null,duration_minutes:60,region:'Central',district:'Riyadh',site_id:'COW1',site_label:'VIP',severity:'High',sla_breached:false,quality_flags:[],...extra});
 const records=[row('PR1','2026-08-31'),row('PR2','2026-08-30',{region:'East',duration_minutes:120}),row('PR3','2026-07-31'),row('PR4','2025-08-31'),row('PR5','2024-08-31'),row('NSA','2026-08-31',{service_impact:'No impact'}),row('SA','2026-09-30')];
 const state={view:'overview',reportView:'overview',period:'2026-08',year:2026,week:36,scope:'all',region:'all',district:'all'},meta={min_date:'2024-01-01',max_date:'2026-09-30'};
 const profiles=Object.fromEntries(Object.keys(REPORTS).map(id=>[id,{impact_mode:'NSA',excluded_root_causes:['Self Cleared'],visuals:{root_cause:{top_n:1,row_rules:[{field:'Root Cause Details',values:['Self Cleared'],exclude:true}],group_rules:[{period:0,value:50,kind:1}]}}}]));

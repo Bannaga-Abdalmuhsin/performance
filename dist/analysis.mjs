@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,rootCauseGroup} from './core.mjs?v=20261019rootgroups';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,rootCauseGroup,hasParentTicket,analysisRecords} from './core.mjs?v=20261019parenttt';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -29,7 +29,7 @@ export const DURATION_BUCKETS=['<2hrs','02-04hrs','04-08hrs','08-24hrs','>24hrs'
 export function reportProfile(profiles,id){return profiles[id]||profiles.overview||{};}
 function impactRows(records,id){
   const impact=REPORTS[id]?.impact||'SA';
-  return records.filter(r=>impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage');
+  return records.filter(r=>!hasParentTicket(r)&&(impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage'));
 }
 export function reportScope(records,state,profiles,id=state.reportView||state.view){
   return scopeFilter(impactRows(records,id),{...state,service_impact:undefined,period:undefined,query:undefined});
@@ -39,7 +39,8 @@ export function latestReportDate(records,profiles,meta,id){
 }
 function impactCoverage(records,id,meta){
   const dates=impactRows(records,id).map(r=>r.created_date).filter(Boolean).sort();
-  return {min_date:meta.min_date,max_date:REPORTS[id]?.impact==='NSA'?(dates.at(-1)||null):meta.max_date};
+  const eligible=analysisRecords(records),latest=eligible.reduce((date,r)=>r.created_date&&(!date||r.created_date>date)?r.created_date:date,null);
+  return {min_date:meta.min_date,max_date:REPORTS[id]?.impact==='NSA'?(dates.at(-1)||null):eligible.length===records.length?meta.max_date:latest};
 }
 function covered(range,meta){
   if(!range||!meta.min_date||!meta.max_date)return {covered:false,partial:false};
@@ -96,6 +97,7 @@ export function comparisonGroups(report,field){
   return field==='duration_bucket'?result.sort((a,b)=>DURATION_BUCKETS.indexOf(a.name)-DURATION_BUCKETS.indexOf(b.name)):result.sort((a,b)=>(b.series[0]?.tickets||0)-(a.series[0]?.tickets||0)||a.name.localeCompare(b.name));
 }
 export function reportTrend(report,state,meta){
+  meta={...meta,...report.sourceCoverage};
   const weekly=['week','week-year'].includes(report.definition.mode),year=Number(state.year||state.period.slice(0,4));
   const ranges=Array.from({length:12},(_,i)=>weekly?shiftWeek(year,Number(state.week),i-11):monthRange(previousMonth(state.period,i-11)));
   return ranges.map(range=>{const coverage=covered(range,meta);return {range,...coverage,summary:coverage.covered?summarize(inRange(report.scope,range)):null};});

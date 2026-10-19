@@ -1,10 +1,10 @@
-import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261019rootgroups';
+import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261019parenttt';
 import {PerformanceDatabase} from './database.mjs?v=20261018users';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261019rootgroups';
-import {renderReport} from './report.mjs?v=20261019rootgroups';
-import {createChartExport} from './charts.mjs?v=20261019rootgroups';
-import {openDashboardExport} from './pdf-report.mjs?v=20261019pdflogos';
+import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261019parenttt';
+import {renderReport} from './report.mjs?v=20261019parenttt';
+import {createChartExport} from './charts.mjs?v=20261019parenttt';
+import {openDashboardExport} from './pdf-report.mjs?v=20261019parenttt';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -31,9 +31,9 @@ function dashboardAccessible(){return !!data&&!!((db?.session&&member?.active)||
 function options(selector,values,allLabel){const el=$(selector),prior=el.value;el.innerHTML=`<option value="all">${allLabel}</option>`+values.map(v=>`<option value="${e(v)}">${e(v)}</option>`).join('');el.value=values.includes(prior)?prior:'all';}
 function activeReportId(){return REPORTS[state.view]?state.view:state.reportView;}
 function activeModel(){return buildReport(data?.records||[],state,profiles,data?.meta||{},activeReportId());}
-function selectLatestPeriod(){if(!data)return;const date=reportDates[activeReportId()]||data.meta.max_date;state.period=date.slice(0,7);state.year=Number(date.slice(0,4));state.week=weekNumber(date);}
+function selectLatestPeriod(){if(!data)return;const date=reportDates[activeReportId()]||analysisRecords(data.records).reduce((latest,r)=>r.created_date&&(!latest||r.created_date>latest)?r.created_date:latest,null)||data.meta.max_date;state.period=date.slice(0,7);state.year=Number(date.slice(0,4));state.week=weekNumber(date);}
 function fillFilters(){
-  const records=data?.records||[];const unique=(field,rows=records)=>[...new Set(rows.map(r=>r[field]).filter(Boolean))].sort();
+  const records=analysisRecords(data?.records||[]);const unique=(field,rows=records)=>[...new Set(rows.map(r=>r[field]).filter(Boolean))].sort();
   options('#region-filter',unique('region'),'All regions');$('#region-filter').value=state.region;
   const districtRows=state.region==='all'?records:records.filter(r=>r.region===state.region);
   options('#district-filter',unique('district',districtRows),'All districts');if(!unique('district',districtRows).includes(state.district))state.district='all';$('#district-filter').value=state.district;
@@ -55,9 +55,9 @@ function setData(dataset,origin){
   const wasLatest=state.followLatest;
   data={...dataset,records:dataset.records.map(row=>({...row,vendor:vendorGroup(row.vendor)}))};source=origin;profile=dataset.meta.profile||profile;
   reportDates=Object.fromEntries(Object.keys(REPORTS).map(id=>[id,latestReportDate(data.records,profiles,data.meta,id)]));
-  if(wasLatest||!state.year)selectLatestPeriod();recordsById=new Map(data.records.map(r=>[r.id,r]));
+  if(wasLatest||!state.year)selectLatestPeriod();recordsById=new Map(analysisRecords(data.records).map(r=>[r.id,r]));
   if(!coverageFor(data.meta,state.period))state.period=data.meta.max_date.slice(0,7);
-  state.page=0;fillFilters();$('#nav-count').textContent=number(data.records.length);
+  state.page=0;fillFilters();$('#nav-count').textContent=number(analysisRecords(data.records).length);
   $('#sidebar-source').textContent='';$('#sidebar-dot').classList.toggle('live',origin==='database');
   $('#footer-source').textContent=`Source records: ${dateName(data.meta.min_date)} – ${dateName(data.meta.max_date)}`;
   notice('');
