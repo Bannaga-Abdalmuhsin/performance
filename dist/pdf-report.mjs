@@ -86,7 +86,7 @@ export async function createDashboardPdf(manifest,{rasterize=rasterizeSvg,assetL
   const {PDFDocument,StandardFonts,rgb}=await pdfLibrary(),doc=await PDFDocument.create();
   doc.setTitle(`stc COW - ${manifest.title} - ${manifest.period}`);doc.setAuthor('stc COW Operations');doc.setCreator('stc COW Performance');doc.setProducer('stc COW Performance');doc.setCreationDate(manifest.generatedAt);
   const regular=await doc.embedFont(StandardFonts.Helvetica),bold=await doc.embedFont(StandardFonts.HelveticaBold);
-  const [stcBytes,acesBytes]=await Promise.all([assetLoader('stc-logo.png',assetBase),assetLoader('aces-managed-services-logo.png',assetBase)]);
+  const [stcBytes,acesBytes]=await Promise.all([assetLoader('pdf-stc-logo.png',assetBase),assetLoader('pdf-aces-logo.png',assetBase)]);
   const stc=await doc.embedPng(stcBytes),aces=await doc.embedPng(acesBytes),cache=new Map();
   const image=async svg=>{if(!cache.has(svg))cache.set(svg,doc.embedPng(await rasterize(svg)));return await cache.get(svg);};
   const W=1190.55,H=841.89,M=36,CW=W-2*M,GAP=16,BOTTOM=44;
@@ -98,9 +98,9 @@ export async function createDashboardPdf(manifest,{rasterize=rasterizeSvg,assetL
   const addPage=()=>{
     const continued=doc.getPageCount()>0;
     page=doc.addPage([W,H]);page.drawRectangle({x:0,y:0,width:W,height:H,color:rgb(1,1,1)});
-    page.drawRectangle({x:M,y:H-65,width:69,height:36,color:purple});const s=stc.scaleToFit(58,27);page.drawImage(stc,{x:M+(69-s.width)/2,y:H-65+(36-s.height)/2,width:s.width,height:s.height});
+    const s=stc.scaleToFit(69,42);page.drawImage(stc,{x:M,y:H-47-s.height/2,width:s.width,height:s.height});
     page.drawText('COW PERFORMANCE',{x:M+86,y:H-41,size:10,font:bold,color:purple});page.drawText(continued?manifest.title:'Performance analysis',{x:M+86,y:H-58,size:continued?13:10,font:continued?bold:regular,color:continued?ink:muted});
-    page.drawRectangle({x:W-M-105,y:H-65,width:105,height:36,color:purple});const a=aces.scaleToFit(98,30);page.drawImage(aces,{x:W-M-105+(105-a.width)/2,y:H-65+(36-a.height)/2,width:a.width,height:a.height});
+    const a=aces.scaleToFit(116,60);page.drawImage(aces,{x:W-M-a.width,y:H-47-a.height/2,width:a.width,height:a.height});
     page.drawLine({start:{x:M,y:H-79},end:{x:W-M,y:H-79},thickness:.7,color:border});if(!continued)page.drawText(manifest.title,{x:M,y:H-111,size:23,font:bold,color:ink});
     page.drawImage(scopeImage,{x:M,y:H-(continued?91:125)-scopeH,width:CW,height:scopeH});y=H-(continued?103:139)-scopeH;
   };

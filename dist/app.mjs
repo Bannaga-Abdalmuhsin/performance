@@ -4,7 +4,7 @@ import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261019rootgroups';
 import {renderReport} from './report.mjs?v=20261019rootgroups';
 import {createChartExport} from './charts.mjs?v=20261019rootgroups';
-import {openDashboardExport} from './pdf-report.mjs?v=20261019rootgroups';
+import {openDashboardExport} from './pdf-report.mjs?v=20261019pdflogos';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
