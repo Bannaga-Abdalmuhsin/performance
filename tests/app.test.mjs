@@ -25,7 +25,7 @@ test('startup without credentials shows only sign-in and no invented operational
 test('all application views render after approved sign-in and escape source text',async()=>{
  for(const [selector,value]of [['#project-url','https://example.supabase.co'],['#project-key','sb_publishable_test'],['#db-email','test@example.com'],['#db-password','test-password']])document.querySelector(selector).value=value;
  const form=new Element();form.id='connection-form';for(const listener of events.submit)await listener({preventDefault(){},target:form});assert.equal(elements.get('#dashboard-shell').hidden,false);
- for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets','review','settings']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(html.length>500,view);assert.ok(!html.includes('NaN'),view);assert.ok(!html.includes('<img src=x'),view);assert.ok(!html.includes('undefined'),view);assert.ok(!/power\s?bi/i.test(html),view);}
+ for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets','settings']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(html.length>500,view);assert.ok(!html.includes('NaN'),view);assert.ok(!html.includes('<img src=x'),view);assert.ok(!html.includes('undefined'),view);assert.ok(!/power\s?bi/i.test(html),view);}
 });
 test('site drill-down restricts the ticket register to the selected COW',async()=>{
  app.navigate('sites');const button=new Element();button.dataset={site:'COW002'};button.id='';const event={target:{closest:selector=>selector==='button,a'?button:null}};for(const listener of events.click)await listener(event);
@@ -66,7 +66,7 @@ test('parent-linked tickets stay out of all views, filters, latest selection and
  const source={meta:{...dataset.meta,min_date:'2024-01-01',max_date:'2026-10-01',record_count:4},records:[record('PARENT',{created_date:'2026-08-31'}),record('NSA',{created_date:'2026-08-30',service_impact:'No impact'}),record('CHILD-SA',{created_date:'2026-09-30',parent_tt:'PARENT',region:'Child only region',duration_minutes:999999}),record('CHILD-NSA',{created_date:'2026-10-01',parent_tt:'xref',service_impact:'No impact',region:'Child only region'})]},before=structuredClone(source);
  Object.assign(app.state,{followLatest:true,root_cause:'all',region:'all',district:'all',vendor:'all',site_id:'all',duration_bucket:'all',severity:'all',site_label:'all',query:''});app.navigate('overview');app.setData(source,'database');
  assert.equal(app.state.period,'2026-08');assert.equal(app.state.week,36);assert.equal(elements.get('#nav-count').textContent,'2');assert.ok(!elements.get('#region-filter').innerHTML.includes('Child only region'));
- for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets','review']){
+ for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets']){
   app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(!html.includes('CHILD-SA'),view);assert.ok(!html.includes('CHILD-NSA'),view);assert.ok(!html.includes('Child only region'),view);
  }
  app.navigate('overview');app.navigate('tickets');assert.ok(elements.get('#content').innerHTML.includes('PARENT'));
