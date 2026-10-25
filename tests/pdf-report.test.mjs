@@ -38,8 +38,8 @@ test('missing periods and zero baselines retain the dashboard comparison rules',
  const nsa=createDashboardExport({...options,state:{...state,view:'weekly-nsa'}});assert.equal(nsa.report.now.partial,true);assert.equal(nsa.report.now.summary.tickets,1);assert.equal(nsa.cards[1].metric,100);
 });
 test('All weeks and grouped vendors preserve matching full calendar years',()=>{
- const source=[row('a','2026-01-01',{vendor:'NSN'}),row('b','2026-08-31',{vendor:'Cisco'}),row('c','2026-08-31',{vendor:'Huawei'}),row('d','2025-12-31',{vendor:'Uncategorized'})],selected={...state,view:'weekly-sa',week:'all',vendor:'Others'};
- const result=createDashboardExport({...options,records:source,state:selected});assert.equal(result.report.now.summary.tickets,2);assert.equal(result.report.prev.summary.tickets,1);assert.equal(result.report.now.range.end,'2026-12-31');assert.equal(result.period,'2026 · All weeks');assert.deepEqual(result.selectedFilters,['Vendor: Others']);
+ const source=[row('a','2026-01-01',{vendor:'NSN'}),row('b','2026-08-31',{vendor:'Cisco'}),row('c','2026-08-31',{vendor:'Huawei'}),row('d','2025-12-31',{vendor:'Uncategorized'})],selected={...state,view:'weekly-sa',week:'all',vendor:'TETRA'};
+ const result=createDashboardExport({...options,records:source,state:selected});assert.equal(result.report.now.summary.tickets,2);assert.equal(result.report.prev.summary.tickets,1);assert.equal(result.report.now.range.end,'2026-12-31');assert.equal(result.period,'2026 · All weeks');assert.deepEqual(result.selectedFilters,['Vendor: TETRA']);
 });
 test('item selection exports only chosen cards and charts in dashboard order',()=>{
  const full=createDashboardExport(options),root=full.items.find(i=>i.id.endsWith('-root_cause')),selected=selectExportItems(full,[root.id,'card-repeat-rate','card-tickets']);

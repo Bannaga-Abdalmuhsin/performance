@@ -1,6 +1,6 @@
-import {summarize,matchesTicketQuery} from './core.mjs?v=20261025resolution';
-import {REPORTS,buildReport,change} from './analysis.mjs?v=20261025resolution';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261025slalayout';
+import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261025groups';
+import {REPORTS,buildReport,change} from './analysis.mjs?v=20261025groups';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261025groups';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -9,7 +9,9 @@ const safeFile=s=>String(s).replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-|-$/g,''
 const dimensions=svg=>{const m=svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);if(!m)throw new Error('A chart could not be prepared.');return {width:Number(m[1]),height:Number(m[2])};};
 
 export function createDashboardExport({records,state,profiles={},meta,generatedAt=new Date(),selectedIds}={}){
-  const selection={...state,scope:'all'},id=REPORTS[selection.view]?selection.view:REPORTS[selection.reportView]?selection.reportView:'overview';
+  const selection={...state,scope:'all'};
+  for(const [field,group]of [['vendor',vendorGroup],['site_label',siteLabelGroup]])if(selection[field]&&selection[field]!=='all')selection[field]=group(selection[field]);
+  const id=REPORTS[selection.view]?selection.view:REPORTS[selection.reportView]?selection.reportView:'overview';
   const report=buildReport(records,selection,profiles,meta,id);
   if(selection.view==='tickets'&&selection.query){
     const matches=r=>matchesTicketQuery(r,selection.query);

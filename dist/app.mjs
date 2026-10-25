@@ -1,10 +1,10 @@
-import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261025resolution';
+import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261025groups';
 import {PerformanceDatabase} from './database.mjs?v=20261018users';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261025resolution';
-import {renderReport} from './report.mjs?v=20261025slalayout';
-import {createChartExport} from './charts.mjs?v=20261025slalayout';
-import {openDashboardExport} from './pdf-report.mjs?v=20261025slalayout';
+import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261025groups';
+import {renderReport} from './report.mjs?v=20261025groups';
+import {createChartExport} from './charts.mjs?v=20261025groups';
+import {openDashboardExport} from './pdf-report.mjs?v=20261025groups';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -37,6 +37,7 @@ function fillFilters(){
   options('#region-filter',unique('region'),'All regions');$('#region-filter').value=state.region;
   const districtRows=state.region==='all'?records:records.filter(r=>r.region===state.region);
   options('#district-filter',unique('district',districtRows),'All districts');if(!unique('district',districtRows).includes(state.district))state.district='all';$('#district-filter').value=state.district;
+  if(state.site_label!=='all')state.site_label=siteLabelGroup(state.site_label);
   for(const [id,key,label]of [['#severity-filter','severity','All severities'],['#label-filter','site_label','All labels']]){options(id,unique(key),label);$(id).value=state[key];}
   if(state.root_cause!=='all')state.root_cause=rootCauseGroup(state.root_cause);options('#cause-filter',ROOT_CAUSE_GROUPS,'All causes');$('#cause-filter').value=state.root_cause;
   if(state.vendor!=='all')state.vendor=vendorGroup(state.vendor);options('#vendor-filter',VENDOR_GROUPS,'All vendors');$('#vendor-filter').value=state.vendor;
@@ -53,7 +54,7 @@ function setData(dataset,origin){
   if(!(db?.session&&member?.active)&&!(origin==='snapshot'&&config.privateSnapshot))throw new Error('Sign in with an approved performance account before opening the dashboard.');
   if(!dataset?.records?.length||!dataset.meta?.min_date||!dataset.meta?.max_date)throw new Error('The dataset has no valid dated records.');
   const wasLatest=state.followLatest;
-  data={...dataset,records:dataset.records.map(row=>({...row,vendor:vendorGroup(row.vendor)}))};source=origin;profile=dataset.meta.profile||profile;
+  data={...dataset,records:dataset.records.map(row=>({...row,vendor:vendorGroup(row.vendor),site_label:siteLabelGroup(row.site_label)}))};source=origin;profile=dataset.meta.profile||profile;
   reportDates=Object.fromEntries(Object.keys(REPORTS).map(id=>[id,latestReportDate(data.records,profiles,data.meta,id)]));
   if(wasLatest||!state.year)selectLatestPeriod();recordsById=new Map(analysisRecords(data.records).map(r=>[r.id,r]));
   if(!coverageFor(data.meta,state.period))state.period=data.meta.max_date.slice(0,7);

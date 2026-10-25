@@ -67,6 +67,6 @@ test('All weeks covers full calendar years across every weekly analysis and keep
   assert.equal(report.definition.mode,'year');assert.equal(report.definition.fullYear,true);assert.equal(report.now.partial,true);
   assert.equal(report.now.summary.tickets,id==='weekly-nsa'?1:2);
  }
- const others=buildReport(source,{...state,week:'all',vendor:'Others'},profiles,meta,'weekly-sa');assert.deepEqual(others.series.map(s=>s.summary.tickets),[1,1,1]);
+ const others=buildReport(source,{...state,week:'all',vendor:'TETRA'},profiles,meta,'weekly-sa');assert.deepEqual(others.series.map(s=>s.summary.tickets),[1,1,1]);
  const monthly=buildReport(source,{...state,week:'all'},profiles,meta,'overview');assert.equal(monthly.now.range.start,'2026-08-01');assert.equal(monthly.now.summary.tickets,1);
 });

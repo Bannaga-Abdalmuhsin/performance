@@ -12,8 +12,12 @@ export function rowRichness(row) {
   const values=Object.entries(row).filter(([k])=>!technicalFields.has(k)).map(([,v])=>v).filter(v=>v!==null&&v!==undefined&&typeof v!=='object'&&!cellError.test(String(v))&&!['','na','n/a','null','none','nan','-'].includes(String(v).trim().toLowerCase()));
   return {populated_fields:values.length,text_characters:values.reduce((n,v)=>n+(typeof v==='string'?[...v.trim()].length:0),0)};
 }
-export const VENDOR_GROUPS=['Nokia','Ericsson','Huawei','Others'];
-export function vendorGroup(value){return VENDOR_GROUPS.find(name=>name.toLowerCase()===String(value??'').trim().toLowerCase())||'Others';}
+export const VENDOR_GROUPS=['Nokia','Ericsson','Huawei','TETRA'];
+export function vendorGroup(value){return VENDOR_GROUPS.find(name=>name.toLowerCase()===String(value??'').trim().toLowerCase())||'TETRA';}
+export function siteLabelGroup(value){
+  const label=String(value??'').trim(),key=label.toLowerCase().replace(/\s+/g,'');
+  return ['','unknown','na','n/a','normal'].includes(key)?'Normal':label;
+}
 export const ROOT_CAUSE_GROUPS=['Generator','Rectifier','SCECO','Others','Alarm Cable Issue','ATS Issue','Air Condition Fault','3rd Party Fault','Circuit Breaker','PMR','LINK','Telecom Cables','MDB Issue','Self Cleared'];
 const causeKey=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const causeNames=new Map(ROOT_CAUSE_GROUPS.map(name=>[causeKey(name),name]));
@@ -50,8 +54,9 @@ export function scopeFilter(records, filters={}, profile={}) {
     if(!isAnalysisRecord(r))return false;
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
       if(filters[field] && filters[field]!=='all'){
-        const value=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];
-        if(value!==(field==='vendor'?vendorGroup(filters[field]):filters[field]))return false;
+        const value=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];
+        const selected=field==='vendor'?vendorGroup(filters[field]):field==='site_label'?siteLabelGroup(filters[field]):filters[field];
+        if(value!==selected)return false;
       }
     }
     if(filters.period && monthOf(r)!==filters.period) return false;
@@ -86,7 +91,7 @@ export function summarize(records) {
 }
 export function groupBy(records, field) {
   const groups=new Map();
-  for(const r of analysisRecords(records)) { const key=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
+  for(const r of analysisRecords(records)) { const key=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
   return [...groups].map(([name,rows])=>({name,...summarize(rows),rows})).sort((a,b)=>b.tickets-a.tickets||a.name.localeCompare(b.name));
 }
 export function monthlyTrend(records, period, meta, count=12) {

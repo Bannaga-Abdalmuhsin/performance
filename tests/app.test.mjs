@@ -39,14 +39,14 @@ test('NSA opens its latest available week, respects a manual week and follows ne
  const latestButton=new Element();latestButton.id='latest-period';for(const listener of events.click)await listener({target:{closest:selector=>selector==='button,a'?latestButton:null}});assert.equal(app.state.week,36);assert.equal(app.state.followLatest,true);
  const newer={...mixed,meta:{...mixed.meta,record_count:5},records:[...mixed.records,record('NSA3',{created_date:'2026-09-12',service_impact:'No impact'})]};app.setData(newer,'database');assert.equal(app.state.week,37);assert.match(elements.get('#content').innerHTML,/1<small>tickets/);app.navigate('weekly-sa');assert.equal(app.state.week,40,'SA must keep its September cutoff');
 });
-test('All weeks survives year and page changes; vendor choices group Others and source status stays hidden',()=>{
+test('All weeks survives year and page changes; vendor choices group TETRA and source status stays hidden',()=>{
  const mixed={meta:{min_date:'2024-01-01',max_date:'2026-08-31',record_count:5},records:[record('OTHER',{created_date:'2026-01-01',vendor:'NSN'}),record('NOKIA',{vendor:'Nokia'}),record('HUAWEI',{vendor:'Huawei'}),record('PRIOR',{created_date:'2025-12-31',vendor:'Cisco'}),record('EARLIER',{created_date:'2024-01-01',vendor:'Specialized'})]};
  Object.assign(app.state,{followLatest:false,period:'2026-08',year:2026,vendor:'all',region:'all',district:'all',site_id:'all',root_cause:'all'});app.setData(mixed,'database');app.navigate('weekly-sa');
  assert.match(elements.get('#week-filter').innerHTML,/<option value="all">All weeks \(full year\)<\/option>/);
  elements.get('#week-filter').listeners.change({target:{value:'all'}});assert.equal(app.state.week,'all');assert.match(elements.get('#content').innerHTML,/3<small>tickets/);assert.match(elements.get('#content').innerHTML,/2026 · All weeks/);
  elements.get('#year-filter').listeners.change({target:{value:'2025'}});assert.equal(app.state.week,'all');assert.match(elements.get('#content').innerHTML,/1<small>tickets/);app.navigate('wow-y');assert.equal(app.state.week,'all');assert.match(elements.get('#content').innerHTML,/2025 · All weeks/);
- const vendors=elements.get('#vendor-filter').innerHTML;for(const vendor of ['Nokia','Ericsson','Huawei','Others'])assert.ok(vendors.includes(`value="${vendor}"`));assert.ok(!vendors.includes('NSN'));
- elements.get('#year-filter').listeners.change({target:{value:'2026'}});elements.get('#vendor-filter').listeners.change({target:{value:'Others'}});assert.match(elements.get('#content').innerHTML,/1<small>tickets/);assert.equal(mixed.records[0].vendor,'NSN');
+ const vendors=elements.get('#vendor-filter').innerHTML;for(const vendor of ['Nokia','Ericsson','Huawei','TETRA'])assert.ok(vendors.includes(`value="${vendor}"`));assert.ok(!vendors.includes('NSN'));
+ elements.get('#year-filter').listeners.change({target:{value:'2026'}});elements.get('#vendor-filter').listeners.change({target:{value:'TETRA'}});assert.match(elements.get('#content').innerHTML,/1<small>tickets/);assert.equal(mixed.records[0].vendor,'NSN');
  assert.equal(elements.get('#sidebar-source').textContent,'');assert.match(readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'),/class="sidebar-source" hidden/);
 });
 
@@ -86,4 +86,16 @@ test('resolution fixation stays out of views, filters, searches and subsequent u
  const dialog=elements.get('#detail-dialog');dialog.open=false;const detail=new Element();detail.dataset={ticket:'FIX-SA|COW001'};for(const listener of events.click)await listener({target:{closest:selector=>selector==='button,a'?detail:null}});assert.equal(dialog.open,false);
  app.navigate('overview');const fixUpload={...source,meta:{...source.meta,max_date:'2026-11-01',record_count:5},records:[...source.records,record('FIX-NEW',{created_date:'2026-11-01',repair_details:'resolution'})]};app.setData(fixUpload,'database');assert.equal(app.state.period,'2026-08');assert.equal(elements.get('#nav-count').textContent,'2');
  app.setData({...fixUpload,meta:{...fixUpload.meta,record_count:6},records:[...fixUpload.records,record('REAL-NEW',{created_date:'2026-09-20'})]},'database');assert.equal(app.state.period,'2026-09');assert.equal(elements.get('#nav-count').textContent,'3');assert.deepEqual(source,before);
+});
+
+test('grouped vendor and Sites Label filters, chart drill-downs, and new loads preserve original rows',()=>{
+ Object.assign(app.state,{followLatest:false,period:'2026-08',year:2026,week:32,root_cause:'all',region:'all',district:'all',vendor:'all',site_id:'all',duration_bucket:'all',severity:'all',site_label:'all',query:''});
+ const source={meta:{min_date:'2026-07-01',max_date:'2026-08-31'},records:[record('LABEL-NA',{site_label:'NA',vendor:'Cisco'}),record('LABEL-UNKNOWN',{site_label:'Unknown',vendor:'NSN'}),record('LABEL-VIP',{site_label:'VIP',vendor:'Nokia'})]},before=JSON.stringify(source);
+ app.setData(source,'snapshot');app.navigate('overview');
+ const labels=elements.get('#label-filter').innerHTML,vendors=elements.get('#vendor-filter').innerHTML;
+ assert(labels.includes('value="Normal"'));assert(!/value="(?:Unknown|NA|N\/A)"/.test(labels));assert(vendors.includes('value="TETRA"'));assert(!vendors.includes('value="Others"'));
+ elements.get('#label-filter').listeners.change({target:{value:'Normal'}});assert.match(elements.get('#content').innerHTML,/2<small>tickets/);
+ elements.get('#vendor-filter').listeners.change({target:{value:'TETRA'}});app.navigate('tickets');assert.match(elements.get('#content').innerHTML,/LABEL-NA/);assert.match(elements.get('#content').innerHTML,/LABEL-UNKNOWN/);assert(!elements.get('#content').innerHTML.includes('LABEL-VIP'));
+ source.records.push(record('LABEL-NEW',{site_label:'na',vendor:'Others'}));app.setData(source,'snapshot');assert.match(elements.get('#content').innerHTML,/LABEL-NEW/);
+ assert.equal(JSON.stringify({...source,records:source.records.slice(0,3)}),before);assert.equal(source.records.at(-1).site_label,'na');
 });
