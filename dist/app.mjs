@@ -1,10 +1,10 @@
-import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261019parenttt';
+import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261025resolution';
 import {PerformanceDatabase} from './database.mjs?v=20261018users';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261019parenttt';
-import {renderReport} from './report.mjs?v=20261019parenttt';
-import {createChartExport} from './charts.mjs?v=20261019parenttt';
-import {openDashboardExport} from './pdf-report.mjs?v=20261019parenttt';
+import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261025resolution';
+import {renderReport} from './report.mjs?v=20261025resolution';
+import {createChartExport} from './charts.mjs?v=20261025resolution';
+import {openDashboardExport} from './pdf-report.mjs?v=20261025resolution';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};

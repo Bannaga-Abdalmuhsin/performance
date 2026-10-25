@@ -3,7 +3,9 @@ export const IMPORT_FIELDS = [...FIELDS,'source_data','deduplication'];
 export const DEDUPLICATION_POLICY = 'ticket-richest-v1';
 export const REPEAT_TT_THRESHOLD = 3;
 export function hasParentTicket(row){return String(row?.parent_tt??row?.['Parent TT']??'').trim()!=='';}
-export function analysisRecords(records){return records.filter(row=>!hasParentTicket(row));}
+export function hasResolutionRepair(row){return /resolution/i.test(String(row?.repair_details??row?.RepairDetails??''));}
+export function isAnalysisRecord(row){return !hasParentTicket(row)&&!hasResolutionRepair(row);}
+export function analysisRecords(records){return records.filter(isAnalysisRecord);}
 const technicalFields=new Set(['#','id','source_key','source_row','source_data','deduplication','quality_flags','import_id','updated_at']);
 const cellError=/^#(?:ERR|REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!|SPILL!|CALC!)/i;
 export function rowRichness(row) {
@@ -45,7 +47,7 @@ export const previousMonth = (m, offset=-1) => { const [y,n]=m.split('-').map(Nu
 export function percentageChange(current, previous) { return !num(current)||!num(previous)||previous===0 ? null : (current-previous)/previous*100; }
 export function scopeFilter(records, filters={}, profile={}) {
   return records.filter(r=>{
-    if(hasParentTicket(r))return false;
+    if(!isAnalysisRecord(r))return false;
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
       if(filters[field] && filters[field]!=='all'){
         const value=field==='vendor'?vendorGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];

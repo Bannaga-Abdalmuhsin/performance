@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,rootCauseGroup,hasParentTicket,analysisRecords} from './core.mjs?v=20261019parenttt';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261025resolution';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -29,7 +29,7 @@ export const DURATION_BUCKETS=['<2hrs','02-04hrs','04-08hrs','08-24hrs','>24hrs'
 export function reportProfile(profiles,id){return profiles[id]||profiles.overview||{};}
 function impactRows(records,id){
   const impact=REPORTS[id]?.impact||'SA';
-  return records.filter(r=>!hasParentTicket(r)&&(impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage'));
+  return analysisRecords(records).filter(r=>impact==='NSA'?r.service_impact!=='Outage':r.service_impact==='Outage');
 }
 export function reportScope(records,state,profiles,id=state.reportView||state.view){
   return scopeFilter(impactRows(records,id),{...state,service_impact:undefined,period:undefined,query:undefined});

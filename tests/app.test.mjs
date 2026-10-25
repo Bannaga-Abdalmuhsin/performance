@@ -75,3 +75,15 @@ test('parent-linked tickets stay out of all views, filters, latest selection and
  const childUpload={...source,meta:{...source.meta,max_date:'2026-11-01',record_count:5},records:[...source.records,record('CHILD-NEW',{created_date:'2026-11-01',parent_tt:'OUTAGE'})]};app.setData(childUpload,'database');assert.equal(app.state.period,'2026-08');assert.equal(elements.get('#nav-count').textContent,'2');
  const newUpload={...childUpload,meta:{...childUpload.meta,record_count:6},records:[...childUpload.records,record('NEW-SA',{created_date:'2026-09-20'})]};app.setData(newUpload,'database');assert.equal(app.state.period,'2026-09');assert.equal(elements.get('#nav-count').textContent,'3');assert.deepEqual(source,before);
 });
+
+
+test('resolution fixation stays out of views, filters, searches and subsequent uploads',async()=>{
+ const source={meta:{...dataset.meta,min_date:'2024-01-01',max_date:'2026-10-01',record_count:4},records:[record('REAL-SA',{created_date:'2026-08-31'}),record('REAL-NSA',{created_date:'2026-08-30',service_impact:'No impact'}),record('FIX-SA',{created_date:'2026-09-30',repair_details:'Resolution fixation',region:'Fixation only'}),record('FIX-NSA',{created_date:'2026-10-01',repair_details:'RESOLUTION completed',service_impact:'No impact',region:'Fixation only'})]},before=structuredClone(source);
+ Object.assign(app.state,{followLatest:true,root_cause:'all',region:'all',district:'all',vendor:'all',site_id:'all',duration_bucket:'all',severity:'all',site_label:'all',query:''});app.navigate('overview');app.setData(source,'database');
+ assert.equal(app.state.period,'2026-08');assert.equal(elements.get('#nav-count').textContent,'2');assert.ok(!elements.get('#region-filter').innerHTML.includes('Fixation only'));
+ for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(!html.includes('FIX-SA'),view);assert.ok(!html.includes('FIX-NSA'),view);assert.ok(!html.includes('Fixation only'),view);}
+ app.navigate('overview');app.navigate('tickets');app.state.query='FIX-SA';app.render();assert.ok(!elements.get('#content').innerHTML.includes('data-ticket="FIX-SA|'));
+ const dialog=elements.get('#detail-dialog');dialog.open=false;const detail=new Element();detail.dataset={ticket:'FIX-SA|COW001'};for(const listener of events.click)await listener({target:{closest:selector=>selector==='button,a'?detail:null}});assert.equal(dialog.open,false);
+ app.navigate('overview');const fixUpload={...source,meta:{...source.meta,max_date:'2026-11-01',record_count:5},records:[...source.records,record('FIX-NEW',{created_date:'2026-11-01',repair_details:'resolution'})]};app.setData(fixUpload,'database');assert.equal(app.state.period,'2026-08');assert.equal(elements.get('#nav-count').textContent,'2');
+ app.setData({...fixUpload,meta:{...fixUpload.meta,record_count:6},records:[...fixUpload.records,record('REAL-NEW',{created_date:'2026-09-20'})]},'database');assert.equal(app.state.period,'2026-09');assert.equal(elements.get('#nav-count').textContent,'3');assert.deepEqual(source,before);
+});
