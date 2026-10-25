@@ -23,7 +23,7 @@ test('each report exports exactly its dashboard cards, full source charts and se
   const selection={...state,view:id,reportView:id},result=createDashboardExport({...options,state:selection}),expected=buildReport(records,selection,{},meta,id);
   assert.equal(result.report.now.summary?.tickets,expected.now.summary?.tickets,id);assert.equal(result.report.now.summary?.durationMinutes,expected.now.summary?.durationMinutes,id);
   assert.deepEqual(result.cards,dashboardCards(expected,selection,meta));assert.deepEqual(result.sections,dashboardSections(expected,selection,meta));
-  assert.equal(result.cards.length,8);assert.ok(result.items.some(i=>i.id==='card-repeat-rate'));assert.ok(!/SLA|eligible|Recorded tickets|Within source date range/.test(JSON.stringify(result.cards)));
+  assert.equal(result.cards.length,8);assert.ok(result.items.some(i=>i.id==='card-repeat-rate'));assert.ok(!/SLA compliance|eligible|Recorded tickets|Within source date range/.test(JSON.stringify(result.cards)));
   assert.equal(result.title,REPORTS[id].title);assert.ok(result.items.filter(i=>i.type==='chart').length>=6);
  }
 });

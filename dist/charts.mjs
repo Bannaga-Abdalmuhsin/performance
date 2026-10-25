@@ -185,7 +185,7 @@ export function dashboardCards(report,state,meta){
   const s=report.now.summary;
   return [
     {id:'card-tickets',label:'No. of tickets KPI',value:n(s?.tickets),unit:'tickets',kind:'value',featured:true,pill:report.definition.impact,spark:areaData(report,state,meta).series[0].values},
-    {id:'card-ticket-change',label:'Ticket change',value:pct(report.ticketChange),metric:report.ticketChange,kind:'ring'},
+    {id:'card-ticket-change',label:CHART_PLANS[report.id].changeKpi?'Outperformance SLA %':'Ticket change',value:pct(report.ticketChange),metric:report.ticketChange,kind:'ring'},
     {id:'card-duration',label:'Duration KPI',value:hours(s?.durationMinutes),unit:'hrs',kind:'value'},
     {id:'card-duration-change',label:'Duration change',value:pct(report.durationChange),metric:report.durationChange,kind:'ring'},
     {id:'card-sites',label:'COWs with tickets',value:n(s?.sites),kind:'support'},
@@ -227,7 +227,14 @@ function comparisonChart(report,field,title,kind='combo',className=''){
   return {id:report.id+'-'+field,title,data,svg,kind,className,scrollHeight:kind==='bar'&&data.labels.length>8?445:undefined};
 }
 function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
-function performanceChart(report){const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse(),values=chronological.map(s=>s.summary?.tickets??null),data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:'Period change',color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};return {id:report.id+'-change-kpi',title:'Ticket performance KPI',data,svg:comboSvg(data,{label:'Ticket performance KPI'}),kind:'combo'};}
+// The source Outperform SLA visual binds ticket-count change, not source SLA outcomes.
+// Use the selected platform periods and counts; never revive its retired fixed adjustments.
+function outperformanceChart(report){
+  const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse();
+  const values=chronological.map(s=>s.summary?.tickets??null),title='Outperformance SLA %';
+  const data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:title,color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};
+  return {id:report.id+'-outperformance-sla',title,data,svg:comboSvg(data,{label:title}),kind:'combo'};
+}
 export function dashboardSections(report,state,meta){
   const p=CHART_PLANS[report.id],sections=[];
   const add=(id,layout,charts)=>{if(charts.length)sections.push({id,layout,charts});};
@@ -244,7 +251,7 @@ export function dashboardSections(report,state,meta){
   add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
   add('root-causes','one',[comparisonChart(report,'root_cause','Root cause TTs comparison',p.root,'bi-root-chart')]);
   add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);
-  if(p.changeKpi)add('performance','one',[performanceChart(report)]);
+  if(p.changeKpi)add('performance','one',[outperformanceChart(report)]);
   return sections;
 }
 export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}
