@@ -1,4 +1,4 @@
-export const FIELDS = ['id','ticket_number','site_id','site_name','region','district','city','vendor','severity','service_impact','site_label','created_at','created_date','cleared_at','referred_at','impact_start','impact_finish','duration_minutes','sla_minutes','sla_breached','sla_excluded','exclusion_reason','parent_tt','root_cause','repair_details','cleared_group','source_row','quality_flags','source_key','restoration_days','duration_text','duration_dax_minutes'];
+export const FIELDS = ['id','ticket_number','site_id','site_name','region','district','city','vendor','severity','service_impact','site_label','created_at','created_date','cleared_at','referred_at','impact_start','impact_finish','duration_minutes','sla_minutes','sla_breached','sla_excluded','exclusion_reason','parent_tt','root_cause','repair_details','cleared_group','source_row','quality_flags','source_key','restoration_days','duration_text','duration_dax_minutes','exceeded_time'];
 export const IMPORT_FIELDS = [...FIELDS,'source_data','deduplication'];
 export const DEDUPLICATION_POLICY = 'ticket-richest-v1';
 export const REPEAT_TT_THRESHOLD = 3;
@@ -6,6 +6,21 @@ export function hasParentTicket(row){return String(row?.parent_tt??row?.['Parent
 export function hasResolutionRepair(row){return /resolution/i.test(String(row?.repair_details??row?.RepairDetails??''));}
 export function isAnalysisRecord(row){return !hasParentTicket(row)&&!hasResolutionRepair(row);}
 export function analysisRecords(records){return records.filter(isAnalysisRecord);}
+export function slaOutcome(row){
+  const raw=row?.source_data&&Object.hasOwn(row.source_data,'Exceeded TIME')?row.source_data['Exceeded TIME']:row?.exceeded_time??row?.['Exceeded TIME'];
+  if(raw===null||raw===undefined||typeof raw==='boolean')return 'unrecorded';
+  const value=String(raw).trim();
+  if(/^NOT\s*EXCEED(?:ED)?$/i.test(value))return 'within';
+  if(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)){
+    const number=Number(value);return Number.isFinite(number)?number>0?'exceeded':'within':'unrecorded';
+  }
+  if(/^[+-]?\d+(?::\d{1,2}){1,3}(?:\.\d+)?$/.test(value)){
+    const parts=value.replace(/^[+-]/,'').split(':').map(Number),time=parts.length===4?parts.slice(1):parts;
+    if(parts.some(n=>!Number.isFinite(n))||time.slice(1).some(n=>n>=60)||parts.length===4&&time[0]>=24)return 'unrecorded';
+    return value.startsWith('-')||parts.every(n=>n===0)?'within':'exceeded';
+  }
+  return 'unrecorded';
+}
 const technicalFields=new Set(['#','id','source_key','source_row','source_data','deduplication','quality_flags','import_id','updated_at']);
 const cellError=/^#(?:ERR|REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NUM!|NULL!|SPILL!|CALC!)/i;
 export function rowRichness(row) {
@@ -70,8 +85,9 @@ export function scopeFilter(records, filters={}, profile={}) {
 export function summarize(records) {
   records=analysisRecords(records);
   const durations=records.map(r=>r.duration_minutes).filter(num);
-  const sla=records.filter(r=>typeof r.sla_breached==='boolean'&&!r.sla_excluded);
-  const breached=sla.filter(r=>r.sla_breached).length;
+  let slaWithin=0,breached=0;
+  for(const row of records){const outcome=slaOutcome(row);if(outcome==='within')slaWithin++;else if(outcome==='exceeded')breached++;}
+  const slaEligible=slaWithin+breached;
   const sites=new Map();
   for(const r of records) if(r.site_id) sites.set(r.site_id,(sites.get(r.site_id)||0)+1);
   const repeatSites=[...sites.values()].filter(n=>n>=REPEAT_TT_THRESHOLD).length;
@@ -80,7 +96,8 @@ export function summarize(records) {
     durationMinutes:sum(durations), durationCount:durations.length,
     mttr:durations.length?sum(durations)/durations.length:null,
     sites:sites.size, repeatSites, repeatRate:sites.size?repeatSites/sites.size*100:null,
-    breached, slaEligible:sla.length, slaCompliance:sla.length?(sla.length-breached)/sla.length*100:null,
+    breached,slaWithin,slaEligible,slaUnrecorded:records.length-slaEligible,
+    slaCompliance:slaEligible?slaWithin/slaEligible*100:null,slaExceedanceRate:slaEligible?breached/slaEligible*100:null,
     slaExcluded:records.filter(r=>r.sla_excluded).length,
     uncleared:records.filter(r=>!r.cleared_at).length,
     impactMinutes:validImpact.length?sum(validImpact.map(r=>(Date.parse(r.impact_finish)-Date.parse(r.impact_start))/60000)):null,
@@ -130,7 +147,7 @@ export function parseCSV(text) {
   });
 }
 export function normalizeRecords(input) {
-  const aliases={'Ticket Number':'ticket_number','SiteID':'site_id','SiteName':'site_name','Region':'region','District':'district','City':'city','Vendor':'vendor','Severity':'severity','Service Impacted':'service_impact','Site Label':'site_label','Create Date':'created_at','Cleared Date':'cleared_at','First Referred to ACES':'referred_at','Service Impact Start':'impact_start','Service Impact Finish':'impact_finish','Parent TT':'parent_tt','Root Cause Details':'root_cause','RepairDetails':'repair_details','Cleared Group':'cleared_group','Exclusions':'exclusion_reason'};
+  const aliases={'Ticket Number':'ticket_number','SiteID':'site_id','SiteName':'site_name','Region':'region','District':'district','City':'city','Vendor':'vendor','Severity':'severity','Service Impacted':'service_impact','Site Label':'site_label','Create Date':'created_at','Cleared Date':'cleared_at','First Referred to ACES':'referred_at','Service Impact Start':'impact_start','Service Impact Finish':'impact_finish','Parent TT':'parent_tt','Root Cause Details':'root_cause','RepairDetails':'repair_details','Cleared Group':'cleared_group','Exclusions':'exclusion_reason','Exceeded TIME':'exceeded_time'};
   const number=(x)=>x===''||x===null||x===undefined?null:Number.isFinite(Number(x))?Number(x):null;
   const bool=(x)=>[true,'true','yes','Yes','YES'].includes(x)?true:[false,'false','no','No','NO'].includes(x)?false:null;
   const clean=(x)=>x===null||x===undefined||cellError.test(String(x))?null:String(x).trim()||null;
@@ -159,7 +176,7 @@ export function normalizeRecords(input) {
     for(const [k,v]of Object.entries(sourceData))if(cellError.test(String(v)))flags.push('Source cell error: '+k);
     const sourceKey=ticket;
     const record=Object.fromEntries(FIELDS.map(k=>[k,clean(copy[k])]));
-    Object.assign(record,{id:'pbi:'+sourceKey,source_key:sourceKey,restoration_days:days,duration_text:clean(copy.duration_text??copy['RestorationTime DDHHMMSS']),duration_dax_minutes:number(copy.duration_dax_minutes),ticket_number:ticket,site_id:site,created_at:created,created_date:new Date(Date.parse(created)+3*3600000).toISOString().slice(0,10),cleared_at:date(copy.cleared_at),referred_at:date(copy.referred_at),impact_start:date(copy.impact_start),impact_finish:date(copy.impact_finish),duration_minutes:num(duration)&&duration>=0?duration:null,sla_minutes:number(copy.sla_minutes)??(number(copy['SLA Time'])!==null?number(copy['SLA Time'])*1440:null),sla_breached:bool(copy.sla_breached??copy['Exceed SLA']),sla_excluded:bool(copy.sla_excluded)??['exclude','excluded'].includes(String(copy['SLA (Include / Excluded)']||'').toLowerCase()),source_row:sourceRow,quality_flags:flags,source_data:sourceData,deduplication:copy.deduplication||null});
+    Object.assign(record,{id:'pbi:'+sourceKey,source_key:sourceKey,restoration_days:days,duration_text:clean(copy.duration_text??copy['RestorationTime DDHHMMSS']),duration_dax_minutes:number(copy.duration_dax_minutes),ticket_number:ticket,site_id:site,created_at:created,created_date:new Date(Date.parse(created)+3*3600000).toISOString().slice(0,10),cleared_at:date(copy.cleared_at),referred_at:date(copy.referred_at),impact_start:date(copy.impact_start),impact_finish:date(copy.impact_finish),duration_minutes:num(duration)&&duration>=0?duration:null,sla_minutes:number(copy.sla_minutes)??(number(copy['SLA Time'])!==null?number(copy['SLA Time'])*1440:null),sla_breached:bool(copy.sla_breached??copy['Exceed SLA']),sla_excluded:bool(copy.sla_excluded)??['exclude','excluded'].includes(String(copy['SLA (Include / Excluded)']||'').toLowerCase()),source_row:sourceRow,quality_flags:flags,exceeded_time:clean(Object.hasOwn(sourceData,'Exceeded TIME')?sourceData['Exceeded TIME']:copy.exceeded_time),source_data:sourceData,deduplication:copy.deduplication||null});
     if(record.sla_minutes!==null&&record.sla_minutes<0){record.sla_minutes=null;flags.push('Negative SLA allowance rejected');}
     if(record.cleared_at&&Date.parse(record.cleared_at)<Date.parse(created))flags.push('Cleared before create date');
     if(record.cleared_at&&record.referred_at&&Date.parse(record.cleared_at)<Date.parse(record.referred_at))flags.push('Cleared before referral');

@@ -172,7 +172,7 @@ def extract(pbix,output):
           'vendor':clean(r['Vendor'])or'Unknown','severity':severity,'service_impact':impact,'site_label':clean(r['Site Label'])or'Unknown',
           'created_at':created,'created_date':created[:10],'cleared_at':cleared,'referred_at':referred,
           'impact_start':date(r['Service Impact Start ']),'impact_finish':date(r['Service Impact Finish']),
-          'duration_minutes':duration,'sla_minutes':None,'sla_breached':breached,
+          'duration_minutes':duration,'sla_minutes':None,'sla_breached':breached,'exceeded_time':clean(r.get('Exceeded TIME')),
           'sla_excluded':(clean(r.get('SLA (Include / Excluded)'))or'').lower()in('exclude','excluded'),
           'exclusion_reason':clean(r['Exclusions']),'parent_tt':clean(r['Parent TT']),'root_cause':clean(r['Root Cause Details'])or'Unknown',
           'repair_details':clean(r['RepairDetails']),'cleared_group':clean(r['Cleared Group']),

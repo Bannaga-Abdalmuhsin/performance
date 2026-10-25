@@ -1,5 +1,5 @@
-import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261025groups';
-import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261025groups';
+import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261025exceeded';
+import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261025exceeded';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -8,6 +8,8 @@ const attr=v=>esc(v).replaceAll('\n','&#10;');
 const n=(v,d=0)=>num(v)?v.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
 const compact=v=>num(v)?Math.abs(v)>=1000?new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(v):n(v,Math.abs(v)>0&&Math.abs(v)<1?2:Number.isInteger(v)?0:1):'—';
 const pct=v=>num(v)?`${v>0?'+':''}${n(v,1)}%`:'—';
+const ratePct=v=>num(v)?n(v,1)+'%':'—';
+const pp=v=>num(v)?(v>0?'+':'')+n(v,1)+' pp':'—';
 const hours=v=>num(v)?n(v/60,1):'—';
 const monthLabel=m=>new Date(m+'-15T12:00:00Z').toLocaleDateString('en-GB',{month:'short',timeZone:'UTC'});
 const seriesName=s=>s.range?.label||'Outside coverage';
@@ -169,9 +171,9 @@ export function durationSeverityData(report){
   return {labels,series:present.map((name,i)=>({name,color:['#4f008c','#ff375e','#00a39b','#b5a0c9','#d99a25'][i%5],values:labels.map(b=>report.now.rows.filter(r=>(r.severity||'Unknown')===name&&durationBucket(r.duration_minutes)===b).length)})),lines:[],field:'duration_bucket',unit:'tickets'};
 }
 function sparkline(values,color){const valid=values.filter(num);if(!valid.length)return '';const w=180,h=38,max=Math.max(1,...valid),gap=w/Math.max(1,values.length-1);return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" class="bi-spark" aria-hidden="true">${segmented(values,i=>i*gap,v=>h-4-v/max*(h-8)).map(p=>`<polyline points="${p.map(x=>x[0]+','+x[1]).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>`).join('')}</svg>`;}
-export function donutSvg(value,label){
-  const circumference=2*Math.PI*43,portion=num(value)?Math.min(100,Math.abs(value))/100:0,color=num(value)&&value<0?'#00a38d':'#ff375e';
-  return `<svg xmlns="http://www.w3.org/2000/svg" class="bi-donut-svg" viewBox="0 0 132 132" role="img" aria-label="${attr(label+': '+pct(value))}"><title>${esc(label)}: ${pct(value)}. Ring shows absolute change up to 100%.</title><circle cx="66" cy="66" r="43" fill="none" stroke="#f0e9f5" stroke-width="9"/><circle cx="66" cy="66" r="43" fill="none" stroke="${color}" stroke-width="9" stroke-dasharray="${circumference*portion} ${circumference}" stroke-linecap="${portion?'round':'butt'}" transform="rotate(-90 66 66)"/><text x="66" y="72" text-anchor="middle" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:${Math.abs(value||0)>999?17:22}px;font-weight:650;fill:${INK}">${esc(pct(value))}</text></svg>`;
+export function donutSvg(value,label,{rate=false}={}){
+  const circumference=2*Math.PI*43,portion=num(value)?Math.min(100,Math.abs(value))/100:0,color=rate?'#00a38d':num(value)&&value<0?'#00a38d':'#ff375e',formatted=rate?ratePct(value):pct(value);
+  return `<svg xmlns="http://www.w3.org/2000/svg" class="bi-donut-svg" viewBox="0 0 132 132" role="img" aria-label="${attr(label+': '+formatted)}"><title>${esc(label)}: ${formatted}. ${rate?'Share within SLA.':'Ring shows absolute change up to 100%.'}</title><circle cx="66" cy="66" r="43" fill="none" stroke="#f0e9f5" stroke-width="9"/><circle cx="66" cy="66" r="43" fill="none" stroke="${color}" stroke-width="9" stroke-dasharray="${circumference*portion} ${circumference}" stroke-linecap="${portion?'round':'butt'}" transform="rotate(-90 66 66)"/><text x="66" y="72" text-anchor="middle" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:${Math.abs(value||0)>999?17:22}px;font-weight:650;fill:${INK}">${esc(formatted)}</text></svg>`;
 }
 export function createChartExport(svg,title,items=[]){
   const match=svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);if(!match)throw new Error('Chart dimensions are unavailable.');
@@ -185,7 +187,7 @@ export function dashboardCards(report,state,meta){
   const s=report.now.summary;
   return [
     {id:'card-tickets',label:'No. of tickets KPI',value:n(s?.tickets),unit:'tickets',kind:'value',featured:true,pill:report.definition.impact,spark:areaData(report,state,meta).series[0].values},
-    {id:'card-ticket-change',label:CHART_PLANS[report.id].changeKpi?'Outperformance SLA %':'Ticket change',value:pct(report.ticketChange),metric:report.ticketChange,kind:'ring'},
+    {id:'card-sla-performance',label:'Outperformance SLA %',value:ratePct(s?.slaCompliance),metric:s?.slaCompliance??null,delta:num(s?.slaCompliance)&&num(report.prev.summary?.slaCompliance)?s.slaCompliance-report.prev.summary.slaCompliance:null,kind:'sla'},
     {id:'card-duration',label:'Duration KPI',value:hours(s?.durationMinutes),unit:'hrs',kind:'value'},
     {id:'card-duration-change',label:'Duration change',value:pct(report.durationChange),metric:report.durationChange,kind:'ring'},
     {id:'card-sites',label:'COWs with tickets',value:n(s?.sites),kind:'support'},
@@ -195,9 +197,11 @@ export function dashboardCards(report,state,meta){
   ];
 }
 function direction(value){return !num(value)?'Unavailable':value<0?'Improved':value>0?'Increased':'No change';}
+const ringStatus=c=>c.kind==='sla'?(num(c.metric)?'Within SLA':'Unavailable'):direction(c.metric);
+const ringTone=c=>!num(c.metric)?'neutral':c.kind==='sla'?'good':c.metric===0?'neutral':c.metric<0?'good':'bad';
 function renderKpis(cards){
-  return `<div class="bi-kpis">${cards.slice(0,4).map(c=>c.kind==='ring'
-    ?`<article class="bi-kpi-ring" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}</div><div class="bi-ring-body">${donutSvg(c.metric,c.label)}<div><b class="${!num(c.metric)||c.metric===0?'neutral':c.metric<0?'good':'bad'}">${direction(c.metric)}</b></div></div></article>`
+  return `<div class="bi-kpis">${cards.slice(0,4).map(c=>(c.kind==='ring'||c.kind==='sla')
+    ?`<article class="bi-kpi-ring" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}</div><div class="bi-ring-body">${donutSvg(c.metric,c.label,{rate:c.kind==='sla'})}<div><b class="${ringTone(c)}">${ringStatus(c)}</b>${c.kind==='sla'&&num(c.delta)?'<span>'+pp(c.delta)+'</span>':''}</div></div></article>`
     :`<article class="bi-kpi-value ${c.featured?'featured':''}" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}${c.pill?`<span class="bi-pill">${esc(c.pill)}</span>`:''}</div><div class="bi-kpi-number">${esc(c.value)}${c.unit?`<small>${esc(c.unit)}</small>`:''}</div>${c.spark?sparkline(c.spark,'#e7b5f2'):''}</article>`).join('')}</div>`;
 }
 export function renderSupportingMetrics(report,state,meta){
@@ -207,9 +211,10 @@ export function cardSvg(c){
   const w=340,h=c.kind==='support'?108:160,ink=c.featured?'white':INK,muted=c.featured?'#e1d1ec':MUTED;
   let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect x="1" y="1" width="${w-2}" height="${h-2}" rx="15" fill="${c.featured?'#4f008c':'white'}" stroke="${c.featured?'#4f008c':'#e9e0ef'}"/><g style="font-family:Inter,Segoe UI,Arial,sans-serif"><text x="24" y="32" style="font-size:13px;font-weight:600;fill:${muted}">${esc(c.label)}</text>`;
   if(c.pill)svg+=`<text x="315" y="32" text-anchor="end" style="font-size:12px;fill:#e1d1ec">${esc(c.pill)}</text>`;
-  if(c.kind==='ring'){
-    const nested=donutSvg(c.metric,c.label).replace('<svg ','<svg x="18" y="31" width="124" height="124" ');
-    svg+=nested+`<text x="154" y="102" style="font-size:15px;font-weight:600;fill:${!num(c.metric)||c.metric===0?MUTED:c.metric<0?'#008f7c':'#dc4264'}">${esc(direction(c.metric))}</text>`;
+  if(c.kind==='ring'||c.kind==='sla'){
+    const nested=donutSvg(c.metric,c.label,{rate:c.kind==='sla'}).replace('<svg ','<svg x="18" y="31" width="124" height="124" ');
+    svg+=nested+`<text x="154" y="102" style="font-size:15px;font-weight:600;fill:${ringTone(c)==='neutral'?MUTED:ringTone(c)==='good'?'#008f7c':'#dc4264'}">${esc(ringStatus(c))}</text>`;
+    if(c.kind==='sla'&&num(c.delta))svg+=`<text x="154" y="127" style="font-size:13px;fill:${MUTED}">${esc(pp(c.delta))}</text>`;
   }else{
     svg+=`<text x="24" y="${c.kind==='support'?82:91}" style="font-size:${c.value.length>10?32:40}px;font-weight:650;letter-spacing:-1px;fill:${ink}">${esc(c.value)}${c.unit?`<tspan style="font-size:14px;letter-spacing:0;font-weight:400;fill:${muted}"> ${esc(c.unit)}</tspan>`:''}</text>`;
     if(c.spark)svg+=sparkline(c.spark,'#e7b5f2').replace('<svg ','<svg x="24" y="111" width="180" height="32" ');
@@ -227,31 +232,36 @@ function comparisonChart(report,field,title,kind='combo',className=''){
   return {id:report.id+'-'+field,title,data,svg,kind,className,scrollHeight:kind==='bar'&&data.labels.length>8?445:undefined};
 }
 function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
-// The source Outperform SLA visual binds ticket-count change, not source SLA outcomes.
-// Use the selected platform periods and counts; never revive its retired fixed adjustments.
+export function slaPerformanceData(report){
+  const periods=[...report.series].reverse();
+  return {labels:periods.map(seriesName),series:[
+    {name:'Within SLA',color:TEAL,values:periods.map(p=>p.summary?.slaWithin??null)},
+    {name:'Exceeded SLA',color:'#ff375e',values:periods.map(p=>p.summary?.breached??null)}
+  ],lines:[{name:'Within SLA %',color:TEAL,values:periods.map(p=>p.summary?.slaCompliance??null)}],
+  unrecorded:periods.map(p=>p.summary?.slaUnrecorded??null),unit:'tickets'};
+}
 export function outperformanceSvg(data,{label='Outperformance SLA %'}={}){
-  const values=data.series[0]?.values||[],last=values.length-1,current=values[last],previous=values[last-1];
-  const metric=data.lines[0]?.values[last]??null,difference=num(current)&&num(previous)?current-previous:null;
-  const value=pct(metric),color=!num(metric)||metric===0?MUTED:metric<0?'#008f7c':'#dc4264';
-  const delta=num(difference)?difference===0?'No ticket difference':n(Math.abs(difference))+(difference<0?' fewer tickets':' more tickets'):'Comparison unavailable';
-  const maximum=Math.max(1,...values.filter(num)),fontSize=value.length>11?30:value.length>8?38:54;
-  // Paint every value into the graphic: a single change point must remain legible in static exports.
-  let svg=svgStart(800,260,label+': '+value)+`<rect x="14" y="25" width="270" height="200" rx="15" fill="${num(metric)&&metric<0?'#f0faf7':'#faf7fc'}"/><text data-outperformance-value="true" x="34" y="105" style="font-size:${fontSize}px;font-weight:650;letter-spacing:-1px;fill:${color}">${esc(value)}</text><text x="36" y="139" style="font-size:16px;font-weight:600;fill:${color}">${direction(metric)}</text><text x="36" y="177" style="font-size:16px;fill:${INK}">${esc(delta)}</text><text class="bi-axis-title" x="326" y="28">TICKETS</text>`;
-  const rowHeight=values.length>2?64:86,start=values.length>2?60:73;
+  const within=data.series[0]?.values||[],exceeded=data.series[1]?.values||[],rates=data.lines[0]?.values||[],last=data.labels.length-1;
+  const current=rates[last],previous=rates[last-1],delta=num(current)&&num(previous)?current-previous:null;
+  const value=ratePct(current),changeText=num(delta)?pp(delta)+' vs comparison':'Comparison unavailable';
+  const changeColor=!num(delta)||delta===0?MUTED:delta>0?'#008f7c':'#dc4264';
+  let svg=svgStart(900,340,label+': '+value+' within SLA')+`<rect x="14" y="36" width="270" height="246" rx="15" fill="#f0faf7"/><text x="35" y="76" style="font-size:14px;fill:${MUTED}">WITHIN SLA</text><text data-outperformance-value="true" x="33" y="147" style="font-size:${value.length>8?42:54}px;font-weight:650;fill:#008f7c">${esc(value)}</text><text x="35" y="191" style="font-size:16px;font-weight:600;fill:${changeColor}">${esc(changeText)}</text><text x="35" y="234" style="font-size:15px;fill:${INK}">${n(within[last])} within / ${n(num(within[last])&&num(exceeded[last])?within[last]+exceeded[last]:null)} assessed</text><rect x="326" y="15" width="10" height="10" rx="2" fill="${TEAL}"/><text x="344" y="25" style="font-size:13px">Within SLA</text><rect x="462" y="15" width="10" height="10" rx="2" fill="#ff375e"/><text x="480" y="25" style="font-size:13px">Exceeded SLA</text>`;
   data.labels.forEach((name,i)=>{
-    const y=start+i*rowHeight,count=values[i],review=i===last,width=num(count)?count/maximum*430:0;
-    if(review)svg+=`<rect x="310" y="${y-24}" width="476" height="71" rx="10" fill="#faf7fc"/>`;
-    svg+=`<text x="326" y="${y}" style="font-size:15px;font-weight:${review?600:400};fill:${review?INK:MUTED}">${esc(name)}</text><text data-period-tickets="true" x="768" y="${y}" text-anchor="end" style="font-size:18px;font-weight:600;fill:${review?'#4f008c':INK}">${n(count)}</text><rect x="326" y="${y+14}" width="430" height="12" rx="6" fill="#eee8f3"/>`;
-    if(num(count)&&count>0)svg+=`<rect x="326" y="${y+14}" width="${width}" height="12" rx="6" fill="${review?CHART_COLORS[0]:'#b5a0c9'}"/>`;
+    const y=65+i*83,a=within[i],b=exceeded[i],unknown=data.unrecorded?.[i],known=num(a)&&num(b)?a+b:null,review=i===last;
+    if(review)svg+=`<rect x="310" y="${y-23}" width="575" height="78" rx="10" fill="#faf7fc"/>`;
+    svg+=`<text x="326" y="${y}" style="font-size:15px;font-weight:${review?600:400};fill:${review?INK:MUTED}">${esc(name)}</text><text x="867" y="${y}" text-anchor="end" style="font-size:16px;font-weight:600;fill:#008f7c">${esc(ratePct(rates[i]))}</text><text data-sla-counts="true" x="326" y="${y+21}" style="font-size:13px;fill:${INK}">Within ${n(a)} (${esc(ratePct(rates[i]))}) | Exceeded ${n(b)} (${esc(ratePct(num(known)&&known>0?b/known*100:null))})${num(unknown)&&unknown?' | Unrecorded '+n(unknown):''}</text><rect x="326" y="${y+34}" width="540" height="12" rx="6" fill="#eee8f3"/>`;
+    if(num(known)&&known>0){
+      if(a>0)svg+=`<rect x="326" y="${y+34}" width="${a/known*540}" height="12" fill="${TEAL}"/>`;
+      if(b>0)svg+=`<rect x="${326+a/known*540}" y="${y+34}" width="${b/known*540}" height="12" fill="#ff375e"/>`;
+    }
   });
   return svg+'</svg>';
 }
 function outperformanceChart(report){
-  const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse();
-  const values=chronological.map(s=>s.summary?.tickets??null),title='Outperformance SLA %';
-  const data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:title,color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};
+  const data=slaPerformanceData(report),title='Outperformance SLA %';
   return {id:report.id+'-outperformance-sla',title,data,svg:outperformanceSvg(data,{label:title}),kind:'performance',showLegend:false,fit:true};
 }
+
 export function dashboardSections(report,state,meta){
   const p=CHART_PLANS[report.id],sections=[];
   const add=(id,layout,charts)=>{if(charts.length)sections.push({id,layout,charts});};
@@ -268,7 +278,7 @@ export function dashboardSections(report,state,meta){
   add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
   add('root-causes','one',[comparisonChart(report,'root_cause','Root cause TTs comparison',p.root,'bi-root-chart')]);
   add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);
-  if(p.changeKpi)add('performance','one',[outperformanceChart(report)]);
+  add('performance','one',[outperformanceChart(report)]);
   return sections;
 }
 export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}

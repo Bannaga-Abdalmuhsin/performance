@@ -15,7 +15,7 @@ test('analysis excludes parent-linked tickets and retains all root causes with e
  assert.equal(scopeFilter(rows,{scope:'all',site_id:'COW999'}).length,0);
 });
 test('Power BI row count, recorded-duration denominator, exemptions, missing values and zero are preserved',()=>{
- const rows=[r(1,{duration_minutes:0}),r(2,{duration_minutes:120,sla_breached:true}),r(3,{duration_minutes:null,sla_breached:null}),r(4,{duration_minutes:60,sla_excluded:true,sla_breached:true})];
+ const rows=[r(1,{duration_minutes:0,exceeded_time:'NOT EXCEED'}),r(2,{duration_minutes:120,sla_breached:true,exceeded_time:'0.01'}),r(3,{duration_minutes:null,sla_breached:null}),r(4,{duration_minutes:60,sla_excluded:true,sla_breached:true})];
  const s=summarize(rows);assert.equal(s.tickets,4);assert.equal(s.durationMinutes,180);assert.equal(s.durationCount,3);assert.equal(s.mttr,60);assert.equal(s.slaEligible,2);assert.equal(s.breached,1);assert.equal(s.slaCompliance,50);assert.equal(s.slaExcluded,1);assert.equal(s.repeatSites,1);
  const no=summarize([r(5,{duration_minutes:null,sla_breached:null})]);assert.equal(no.durationMinutes,0);assert.equal(no.mttr,null);assert.equal(no.slaCompliance,null);
  assert.equal(summarize([r(1),r(1,{site_id:'COW002'})]).tickets,2);assert.equal(summarize([r(1),r(1,{site_id:'COW002'})]).distinctTickets,1);

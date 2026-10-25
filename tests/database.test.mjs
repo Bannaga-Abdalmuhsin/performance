@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PerformanceDatabase,validatePublicKey} from '../dist/database.mjs';
+import {slaOutcome} from '../dist/core.mjs';
 const key='sb_publishable_test';
 globalThis.sessionStorage={getItem:()=>null,setItem(){},removeItem(){}};
 function dbMock(handler){const db=new PerformanceDatabase('https://example.supabase.co',key);db.session={user:{id:'test'},access_token:'test',expires_at:Date.now()+3600000};db.member=async()=>({role:'analyst'});db.request=handler;return db;}
@@ -8,6 +9,13 @@ test('browser key validation rejects secret and service role credentials',()=>{
  assert.equal(validatePublicKey(key),true);assert.throws(()=>validatePublicKey('sb_secret_test'),/Secret/);
  const token='x.'+btoa(JSON.stringify({role:'service_role'}))+'.x';assert.throws(()=>validatePublicKey(token),/publishable/);
  assert.throws(()=>new PerformanceDatabase('http://example.supabase.co',key),/HTTPS/);
+});
+test('database reads include the authoritative Exceeded TIME field without loading all source columns',async()=>{
+ let page=0;const db=dbMock(async path=>{
+  if(path.includes('performance_imports'))return [{id:'sla-batch',status:'complete',record_count:2,min_date:'2026-10-01',max_date:'2026-10-24',metadata:{}}];
+  assert(path.includes('exceeded_time'));assert(!path.includes('source_data'));
+  return page++===0?[{id:'a',exceeded_time:'NOT EXCEED',sla_breached:true},{id:'b',exceeded_time:'0.01',sla_breached:false}]:[];
+ });const data=await db.load();assert.deepEqual(data.records.map(slaOutcome),['within','exceeded']);
 });
 test('loading follows keyset cursors even when the server returns fewer rows than requested',async()=>{
  let page=0,imports=0;const db=dbMock(async path=>{
