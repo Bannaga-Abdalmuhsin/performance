@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildReport} from '../dist/analysis.mjs';
-import {dashboardCards,dashboardSections,cardSvg} from '../dist/charts.mjs';
+import {dashboardCards,dashboardSections,cardSvg,outperformanceSvg} from '../dist/charts.mjs';
 import {renderReport} from '../dist/report.mjs';
 import {createDashboardExport,selectExportItems,createDashboardPdf} from '../dist/pdf-report.mjs';
 import {PDFDocument} from '../dist/assets/vendor/pdf-lib-1.17.1.mjs';
@@ -23,7 +23,7 @@ test('outperformance uses filtered ticket change and preserves the signed source
   assert.equal(card.label,'Outperformance SLA %');assert.equal(card.metric,expected);
   assert.equal(item.title,'Outperformance SLA %');assert.equal(item.data.lines[0].name,'Outperformance SLA %');assert.equal(item.data.lines[0].values.at(-1),expected);
   assert.equal(item.data.series[0].values.at(-1),report.now.summary.tickets);
-  assert.match(item.svg,/CHANGE %/);assert(!/NaN|Infinity|undefined/.test(item.svg));
+  assert.match(item.svg,/<text data-outperformance-value[^>]*>[^<]+%<\/text>/);assert.equal(item.kind,'performance');assert(!/NaN|Infinity|undefined/.test(item.svg));
   const html=renderReport(report,selection,meta);assert.match(html,/Outperformance SLA %/);assert(!html.includes('SLA compliance'));assert(!html.includes('Ticket performance KPI'));assert.equal((html.match(/data-export-card=/g)||[]).length,8);
  }
  // All source tickets are marked as breached: this measure must still be ticket change.
@@ -48,6 +48,18 @@ test('zero baselines, missing coverage, year boundaries, and All weeks keep plat
   const r=buildReport(source,state,{},meta,id);
   assert.equal(chart(r),undefined);assert.equal(dashboardCards(r,state,meta)[1].label,'Ticket change');
  }
+});
+
+test('static outperformance graphics print the percentage, ticket difference, and every period count',()=>{
+ const data=(values,metric)=>({labels:values.map((_,i)=>'W'+(41+i)+' · 2026'),series:[{values}],lines:[{values:values.map((_,i)=>i===values.length-1?metric:null)}]});
+ const negative=outperformanceSvg(data([114,112],-2/114*100));
+ assert.match(negative,/<text data-outperformance-value[^>]*>-1\.8%<\/text>/);assert.match(negative,/>2 fewer tickets<\/text>/);
+ for(const count of [114,112])assert.match(negative,new RegExp('<text data-period-tickets[^>]*>'+count+'<\\/text>'));
+ const three=outperformanceSvg(data([100,120,150],25));assert.match(three,/>\+25\.0%<\/text>/);assert.match(three,/>30 more tickets<\/text>/);
+ assert.equal((three.match(/data-period-tickets/g)||[]).length,3);
+ const zero=outperformanceSvg(data([0,0],0));assert.match(zero,/>0\.0%<\/text>/);assert.match(zero,/>No ticket difference<\/text>/);
+ const missing=outperformanceSvg(data([null,2],null));assert.match(missing,/<text data-outperformance-value[^>]*>—<\/text>/);assert.match(missing,/>Comparison unavailable<\/text>/);
+ for(const svg of [negative,three,zero,missing])assert(!/NaN|Infinity|undefined/.test(svg));
 });
 
 test('PDF selection includes the KPI and full comparison chart with the dashboard values',async()=>{

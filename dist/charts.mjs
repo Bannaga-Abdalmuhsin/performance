@@ -229,11 +229,28 @@ function comparisonChart(report,field,title,kind='combo',className=''){
 function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
 // The source Outperform SLA visual binds ticket-count change, not source SLA outcomes.
 // Use the selected platform periods and counts; never revive its retired fixed adjustments.
+export function outperformanceSvg(data,{label='Outperformance SLA %'}={}){
+  const values=data.series[0]?.values||[],last=values.length-1,current=values[last],previous=values[last-1];
+  const metric=data.lines[0]?.values[last]??null,difference=num(current)&&num(previous)?current-previous:null;
+  const value=pct(metric),color=!num(metric)||metric===0?MUTED:metric<0?'#008f7c':'#dc4264';
+  const delta=num(difference)?difference===0?'No ticket difference':n(Math.abs(difference))+(difference<0?' fewer tickets':' more tickets'):'Comparison unavailable';
+  const maximum=Math.max(1,...values.filter(num)),fontSize=value.length>11?30:value.length>8?38:54;
+  // Paint every value into the graphic: a single change point must remain legible in static exports.
+  let svg=svgStart(800,260,label+': '+value)+`<rect x="14" y="25" width="270" height="200" rx="15" fill="${num(metric)&&metric<0?'#f0faf7':'#faf7fc'}"/><text data-outperformance-value="true" x="34" y="105" style="font-size:${fontSize}px;font-weight:650;letter-spacing:-1px;fill:${color}">${esc(value)}</text><text x="36" y="139" style="font-size:16px;font-weight:600;fill:${color}">${direction(metric)}</text><text x="36" y="177" style="font-size:16px;fill:${INK}">${esc(delta)}</text><text class="bi-axis-title" x="326" y="28">TICKETS</text>`;
+  const rowHeight=values.length>2?64:86,start=values.length>2?60:73;
+  data.labels.forEach((name,i)=>{
+    const y=start+i*rowHeight,count=values[i],review=i===last,width=num(count)?count/maximum*430:0;
+    if(review)svg+=`<rect x="310" y="${y-24}" width="476" height="71" rx="10" fill="#faf7fc"/>`;
+    svg+=`<text x="326" y="${y}" style="font-size:15px;font-weight:${review?600:400};fill:${review?INK:MUTED}">${esc(name)}</text><text data-period-tickets="true" x="768" y="${y}" text-anchor="end" style="font-size:18px;font-weight:600;fill:${review?'#4f008c':INK}">${n(count)}</text><rect x="326" y="${y+14}" width="430" height="12" rx="6" fill="#eee8f3"/>`;
+    if(num(count)&&count>0)svg+=`<rect x="326" y="${y+14}" width="${width}" height="12" rx="6" fill="${review?CHART_COLORS[0]:'#b5a0c9'}"/>`;
+  });
+  return svg+'</svg>';
+}
 function outperformanceChart(report){
   const chronological=[...report.series.slice(0,CHART_PLANS[report.id].periods)].reverse();
   const values=chronological.map(s=>s.summary?.tickets??null),title='Outperformance SLA %';
   const data={labels:chronological.map(seriesName),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[{name:title,color:TEAL,values:values.map((v,i)=>i?change(v,values[i-1]):null)}],unit:'tickets'};
-  return {id:report.id+'-outperformance-sla',title,data,svg:comboSvg(data,{label:title}),kind:'combo'};
+  return {id:report.id+'-outperformance-sla',title,data,svg:outperformanceSvg(data,{label:title}),kind:'performance',showLegend:false,fit:true};
 }
 export function dashboardSections(report,state,meta){
   const p=CHART_PLANS[report.id],sections=[];

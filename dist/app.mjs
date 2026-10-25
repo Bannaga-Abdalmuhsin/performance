@@ -2,9 +2,9 @@ import {FIELDS,VENDOR_GROUPS,vendorGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matche
 import {PerformanceDatabase} from './database.mjs?v=20261018users';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261025resolution';
-import {renderReport} from './report.mjs?v=20261025outperformance';
-import {createChartExport} from './charts.mjs?v=20261025outperformance';
-import {openDashboardExport} from './pdf-report.mjs?v=20261025outperformance';
+import {renderReport} from './report.mjs?v=20261025slalayout';
+import {createChartExport} from './charts.mjs?v=20261025slalayout';
+import {openDashboardExport} from './pdf-report.mjs?v=20261025slalayout';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
