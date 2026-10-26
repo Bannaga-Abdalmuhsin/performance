@@ -1,3 +1,4 @@
+import {cowPerformanceParts} from './site-table.mjs?v=20261026cowtable';
 import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261025exceeded';
 import {comparisonGroups,change,durationBucket,monthRange,DURATION_BUCKETS} from './analysis.mjs?v=20261025exceeded';
 
@@ -283,6 +284,7 @@ export function dashboardSections(report,state,meta){
 }
 export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}
 export function exportChartParts(chart,{maxCategories=12,maxRows=7}={}){
+  if(chart.kind==='table')return cowPerformanceParts(chart);
   const horizontal=['bar','severity-bar'].includes(chart.kind),combo=['combo','stacked-combo'].includes(chart.kind),limit=horizontal?maxRows:chart.data.field==='root_cause'?Math.max(ROOT_CAUSE_GROUPS.length,maxCategories):maxCategories;
   if((!horizontal&&!combo)||chart.data.labels.length<=limit)return [{...chart,part:1,partCount:1}];
   const data=chart.data,totals=data.labels.map((_,i)=>data.series.reduce((n,s)=>n+(s.values[i]||0),0));

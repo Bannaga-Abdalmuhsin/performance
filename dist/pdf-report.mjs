@@ -1,6 +1,7 @@
+import {cowPerformanceChart} from './site-table.mjs?v=20261026cowtable';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261025exceeded';
 import {REPORTS,buildReport,change} from './analysis.mjs?v=20261025exceeded';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261025exceeded';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261026cowtable';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -18,10 +19,10 @@ export function createDashboardExport({records,state,profiles={},meta,generatedA
     report.scope=report.scope.filter(matches);report.series=report.series.map(s=>{const rows=s.rows.filter(matches);return {...s,rows,summary:s.covered?summarize(rows):null};});
     [report.now,report.prev]=report.series;report.ticketChange=change(report.now.summary?.tickets,report.prev.summary?.tickets);report.durationChange=change(report.now.summary?.durationMinutes,report.prev.summary?.durationMinutes);
   }
-  const cards=dashboardCards(report,selection,meta),sections=dashboardSections(report,selection,meta);
+  const cards=dashboardCards(report,selection,meta),sections=selection.view==='sites'?[{id:'cow-performance',layout:'one',charts:[cowPerformanceChart(report,{query:selection.query,sort:selection.sort,dir:selection.dir})]}]:dashboardSections(report,selection,meta);
   const items=[...cards.map(card=>({id:card.id,label:card.label,type:'card',card})),...sections.flatMap(section=>section.charts.map(chart=>({id:chart.id,label:chart.title,type:'chart',chart,section:section.id,layout:section.layout})))];
   const selectedFilters=filterFields.filter(([key])=>selection[key]&&selection[key]!=='all').map(([key,label])=>`${label}: ${selection[key]}`);
-  if(selection.view==='tickets'&&selection.query)selectedFilters.push(`Search: ${selection.query}`);
+  if(['tickets','sites'].includes(selection.view)&&selection.query)selectedFilters.push(`Search: ${selection.query}`);
   const manifest={report,state:selection,meta:{...meta},cards,sections,items,selectedFilters,generatedAt:new Date(generatedAt),title:report.definition.title,period:report.now.range?.label||'Unavailable',filename:`stc-COW-${id}-${safeFile(report.now.range?.label||selection.period)}-dashboard.pdf`};
   return selectedIds===undefined?manifest:selectExportItems(manifest,selectedIds);
 }
@@ -154,17 +155,18 @@ export function savePdfDownload(bytes,filename){
 export async function downloadDashboardPdf(manifest,options){const result=await createDashboardPdf(manifest,options);savePdfDownload(result.bytes,result.filename);return result;}
 
 export function openDashboardExport(options){
-  const manifest=createDashboardExport(options),dialog=document.createElement('dialog');dialog.className='pdf-export-dialog';dialog.setAttribute('aria-label','Download cards and charts as PDF');
+  const manifest=createDashboardExport(options),dialog=document.createElement('dialog');dialog.className='pdf-export-dialog';dialog.setAttribute('aria-label','Download selected performance items as PDF');
+  const hasTable=manifest.items.some(i=>i.chart?.kind==='table');
   const choices=type=>manifest.items.filter(i=>i.type===type).map(i=>`<label class="pdf-choice"><input type="checkbox" name="pdf-item" value="${esc(i.id)}" checked><span>${esc(i.label)}</span></label>`).join('');
-  dialog.innerHTML=`<form class="pdf-export-form"><div class="pdf-export-heading"><div><span class="eyebrow">DOWNLOAD PDF</span><h2>Cards & charts</h2></div><button type="button" class="icon-button" data-pdf-close aria-label="Close PDF export">×</button></div><p class="pdf-export-scope">${esc(manifest.title)} · ${esc(manifest.period)}</p><div class="pdf-export-toolbar"><p>Choose the items to include.</p><div><button type="button" class="text-button" data-pdf-all>Select all</button><button type="button" class="text-button" data-pdf-none>Clear</button></div></div><div class="pdf-export-choices"><fieldset><legend>Cards</legend>${choices('card')}</fieldset><fieldset><legend>Charts</legend>${choices('chart')}</fieldset></div><div class="pdf-export-bottom"><p class="pdf-export-status" role="status"></p><button type="button" class="button secondary" data-pdf-close>Cancel</button><button class="button primary" type="submit">Download PDF</button></div></form>`;
+  dialog.innerHTML=`<form class="pdf-export-form"><div class="pdf-export-heading"><div><span class="eyebrow">DOWNLOAD PDF</span><h2>${hasTable?'Cards & table':'Cards & charts'}</h2></div><button type="button" class="icon-button" data-pdf-close aria-label="Close PDF export">×</button></div><p class="pdf-export-scope">${esc(manifest.title)} · ${esc(manifest.period)}</p><div class="pdf-export-toolbar"><p>Choose the items to include.</p><div><button type="button" class="text-button" data-pdf-all>Select all</button><button type="button" class="text-button" data-pdf-none>Clear</button></div></div><div class="pdf-export-choices"><fieldset><legend>Cards</legend>${choices('card')}</fieldset><fieldset><legend>${hasTable?'Table':'Charts'}</legend>${choices('chart')}</fieldset></div><div class="pdf-export-bottom"><p class="pdf-export-status" role="status"></p><button type="button" class="button secondary" data-pdf-close>Cancel</button><button class="button primary" type="submit">Download PDF</button></div></form>`;
   const form=dialog.querySelector('form'),inputs=[...dialog.querySelectorAll('input')],status=dialog.querySelector('[role=status]'),submit=dialog.querySelector('[type=submit]');let busy=false,result=null;
-  const count=()=>{const ids=new Set(inputs.filter(i=>i.checked).map(i=>i.value)),chosen=manifest.items.filter(i=>ids.has(i.id));submit.disabled=!ids.size;status.textContent=`${chosen.filter(i=>i.type==='card').length} cards · ${chosen.filter(i=>i.type==='chart').length} charts`;};
+  const count=()=>{const ids=new Set(inputs.filter(i=>i.checked).map(i=>i.value)),chosen=manifest.items.filter(i=>ids.has(i.id)),visuals=chosen.filter(i=>i.type==='chart').length;submit.disabled=!ids.size;status.textContent=`${chosen.filter(i=>i.type==='card').length} cards · ${visuals} ${hasTable?(visuals===1?'table':'tables'):(visuals===1?'chart':'charts')}`;};
   dialog.addEventListener('change',count);
   dialog.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||busy)return;if(b.hasAttribute('data-pdf-close'))dialog.close();if(b.hasAttribute('data-pdf-all')||b.hasAttribute('data-pdf-none')){inputs.forEach(i=>i.checked=b.hasAttribute('data-pdf-all'));count();}});
   dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy)return;busy=true;form.setAttribute('aria-busy','true');dialog.querySelectorAll('button,input').forEach(el=>el.disabled=true);status.textContent='Preparing PDF…';
-    try{const selected=selectExportItems(manifest,inputs.filter(i=>i.checked).map(i=>i.value));result=await downloadDashboardPdf(selected,{onProgress:(n,total)=>status.textContent=`Preparing charts ${n} of ${total}…`});dialog.close();}
+    try{const selected=selectExportItems(manifest,inputs.filter(i=>i.checked).map(i=>i.value));result=await downloadDashboardPdf(selected,{onProgress:(n,total)=>status.textContent=`Preparing items ${n} of ${total}…`});dialog.close();}
     catch(error){busy=false;form.removeAttribute('aria-busy');dialog.querySelectorAll('button,input').forEach(el=>el.disabled=false);status.textContent=error.message;submit.disabled=!inputs.some(i=>i.checked);}
   });
   return new Promise(resolve=>{dialog.addEventListener('close',()=>{dialog.remove();resolve(result);},{once:true});document.body.append(dialog);count();dialog.showModal();});
