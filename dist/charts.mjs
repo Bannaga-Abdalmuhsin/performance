@@ -1,6 +1,6 @@
-import {cowPerformanceParts} from './site-table.mjs?v=20261026range';
-import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261025exceeded';
-import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261026range';
+import {cowPerformanceParts} from './site-table.mjs?v=20261026all';
+import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261026all';
+import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261026all';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -68,11 +68,11 @@ function panel({id,title,data,svg,kind='combo',className='',legendLines=true,sho
 function groupTip(data,index){return `${data.labels[index]}\n${data.series.map(s=>`${s.name}: ${n(s.values[index],data.unit==='hours'?1:0)}${data.unit==='hours'?' hrs':' tickets'}`).join('\n')}${data.lines?.length?'\n'+data.lines.map(l=>l.name+': '+pct(l.values[index])).join('\n'):''}`;}
 
 export function comparisonData(report,field){
-  const plan=CHART_PLANS[report.id],groups=comparisonGroups(report,field),periods=plan.periods;
+  const plan=CHART_PLANS[report.id],groups=comparisonGroups(report,field),periods=report.definition.comparisonUnavailable?1:plan.periods;
   const lines=[{name:'Ticket change',color:TEAL,values:groups.map(g=>g.ticketChange)}];
   if(report.id!=='weekly-nsa'&&field!=='duration_bucket')lines.push({name:'Duration change',color:AMBER,values:groups.map(g=>g.durationChange)});
   if(report.id==='overview'&&field==='duration_bucket')lines.push({name:'Duration change',color:AMBER,values:groups.map(g=>g.durationChange)});
-  return {labels:groups.map(g=>g.name),series:report.series.slice(0,periods).map((s,i)=>({name:seriesName(s),color:CHART_COLORS[i],values:groups.map(g=>g.series[i]?.tickets??null)})),lines,field,unit:'tickets'};
+  return {labels:groups.map(g=>g.name),series:report.series.slice(0,periods).map((s,i)=>({name:seriesName(s),color:CHART_COLORS[i],values:groups.map(g=>g.series[i]?.tickets??null)})),lines:report.definition.comparisonUnavailable?[]:lines,field,unit:'tickets'};
 }
 export function comboSvg(data,{stacked=false,label='',width,axisScale,changeScale,showValues=data.labels.length<=8}={}){
   if(!data.labels.length)return emptySvg(label);
@@ -122,26 +122,31 @@ function reviewMonths(range){
 }
 export function yearMonthData(report,state,meta,metric='hours'){
   meta={...meta,...report.sourceCoverage};
-  if(report.definition.customRange){
+  if(report.definition.customRange&&!report.definition.allYears){
     const months=reviewMonths(report.now.range),series=report.series.map((period,i)=>({name:seriesName(period),color:CHART_COLORS[i],values:months.map(month=>{
       const key=shiftReviewDate(month.month+'-01',-12*i).slice(0,7),range=monthRange(key);
       if(!period.covered||range.end<meta.min_date||range.start>meta.max_date)return null;
       const summary=summarize(period.rows.filter(row=>row.created_date.slice(0,7)===key));return metric==='hours'?summary.durationMinutes/60:summary.tickets;
     })}));
-    return {labels:months.map(m=>m.label),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0].values[i],series[1].values[i]))}],unit:metric};
+    return {labels:months.map(m=>m.label),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0]?.values[i],series[1]?.values[i]))}],unit:metric};
   }
-  const years=[0,1,2].map(n=>Number(state.year||state.period.slice(0,4))-n),months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+  const years=report.definition.allYears?[...(report.now.range?.years||[])].reverse():[0,1,2].map(n=>Number(state.year||state.period.slice(0,4))-n),months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
   const buckets=new Map();for(const r of report.scope){const key=r.created_date.slice(0,7);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(r);}
-  const series=years.map((year,index)=>({name:String(year),color:CHART_COLORS[index],values:months.map(m=>{
+  const series=years.map((year,index)=>({name:String(year),color:CHART_COLORS[index%CHART_COLORS.length],values:months.map(m=>{
     const range=monthRange(year+'-'+m),clip=report.id==='yoy'?report.series[index].range:null;
     if(!meta.max_date||range.end<meta.min_date||range.start>meta.max_date||clip&&range.start>clip.end)return null;
     const rows=(buckets.get(year+'-'+m)||[]).filter(r=>!clip||r.created_date<=clip.end),s=summarize(rows);
     return metric==='hours'?s.durationMinutes/60:s.tickets;
   })}));
-  return {labels:months.map(m=>monthLabel('2024-'+m)),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0].values[i],series[1].values[i]))}],unit:metric};
+  return {labels:months.map(m=>monthLabel('2024-'+m)),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0]?.values[i],series[1]?.values[i]))}],unit:metric};
 }
 export function areaData(report,state,meta){
   meta={...meta,...report.sourceCoverage};
+  if(report.now.range?.allYears&&report.now.range.week){
+    const available=new Set();for(const range of report.now.range.ranges)for(let t=Date.parse(range.start+'T00:00:00Z');t<=Date.parse(range.end+'T00:00:00Z');t+=DAY){const date=new Date(t).toISOString().slice(0,10);if(date>=meta.min_date&&date<=meta.max_date)available.add(new Date(t).getUTCDay());}
+    const values=Array.from({length:7},(_,day)=>available.has(day)?report.now.rows.filter(r=>new Date(r.created_date+'T00:00:00Z').getUTCDay()===day).length:null);
+    return {labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[],unit:'tickets',ranges:report.now.range.ranges};
+  }
   const weekly=report.definition.mode.includes('week');let ranges=[];
   const custom=report.definition.customRange,range=report.now.range,daily=weekly||custom&&range&&(Date.parse(range.end)-Date.parse(range.start))/DAY<31;
   if(daily&&range){for(let t=Date.parse(range.start+'T00:00:00Z');t<=Date.parse(range.end+'T00:00:00Z');t+=DAY){const date=new Date(t).toISOString().slice(0,10);ranges.push({start:date,end:date,label:new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'})});}}
@@ -161,7 +166,7 @@ export function areaSvg(data,{label='',id='area'}={}){
     for(const [xx,yy,value,i]of points)svg+=`<g data-tip="${attr(data.labels[i]+'\n'+n(value)+' tickets')}"><title>${esc(data.labels[i])}: ${n(value)} tickets</title><circle cx="${xx}" cy="${yy}" r="4" fill="white" stroke="#6e23a0" stroke-width="2.5"/><circle cx="${xx}" cy="${yy}" r="15" fill="transparent"/></g>`;
   }
   const labelStep=data.labels.length>12?Math.ceil(data.labels.length/10):1;
-  data.labels.forEach((name,i)=>{const edge=name.length>7?(i===0?'start':i===data.labels.length-1?'end':'middle'):'middle';if(i%labelStep===0||i===data.labels.length-1)svg+=`<text x="${x(i)}" y="${h-17}" text-anchor="${edge}">${esc(name)}</text>`;});return svg+'</svg>';
+  data.labels.forEach((name,i)=>{const last=data.labels.length-1,edge=name.length>7&&i===last?'end':'middle';if(i===last||i%labelStep===0&&(i===0||last-i>=labelStep))svg+=`<text x="${x(i)}" y="${h-17}" text-anchor="${edge}">${esc(name)}</text>`;});return svg+'</svg>';
 }
 export function regionalData(report,metric='tickets'){
   const groups=comparisonGroups(report,'region');return {labels:groups.map(g=>g.name),series:[],lines:[{name:metric==='tickets'?'Ticket change':'Duration change',color:metric==='tickets'?TEAL:AMBER,values:groups.map(g=>metric==='tickets'?g.ticketChange:g.durationChange)}],field:'region',unit:'percent'};
@@ -252,7 +257,7 @@ function comparisonChart(report,field,title,kind='combo',className=''){
 }
 function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
 export function slaPerformanceData(report){
-  const periods=[...report.series].reverse();
+  const periods=(report.definition.comparisonUnavailable?[report.now]:[...report.series]).reverse();
   return {labels:periods.map(seriesName),series:[
     {name:'Within SLA',color:TEAL,values:periods.map(p=>p.summary?.slaWithin??null)},
     {name:'Exceeded SLA',color:'#ff375e',values:periods.map(p=>p.summary?.breached??null)}
@@ -294,7 +299,7 @@ export function dashboardSections(report,state,meta){
   ]);}
   const priorities=[];if(p.severity)priorities.push(comparisonChart(report,'severity','Severity TTs comparison'));if(p.label)priorities.push(comparisonChart(report,'site_label','Sites Label TTs comparison'));
   add('priorities',p.severity?'two':'one',priorities);
-  add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
+  if(!report.definition.comparisonUnavailable)add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
   add('root-causes','one',[comparisonChart(report,'root_cause','Root cause TTs comparison',p.root,'bi-root-chart')]);
   add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);
   add('performance','one',[outperformanceChart(report)]);

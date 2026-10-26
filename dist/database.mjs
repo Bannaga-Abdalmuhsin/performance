@@ -1,4 +1,4 @@
-import {FIELDS,IMPORT_FIELDS} from './core.mjs?v=20261025exceeded';
+import {FIELDS,IMPORT_FIELDS} from './core.mjs?v=20261026all';
 const SESSION='cow-performance-session';
 export function validatePublicKey(key) {
   if(key.startsWith('sb_secret_'))throw new Error('Use the publishable key. Secret keys cannot be used in this page.');

@@ -4,7 +4,8 @@ export const DEDUPLICATION_POLICY = 'ticket-richest-v1';
 export const REPEAT_TT_THRESHOLD = 3;
 export function hasParentTicket(row){return String(row?.parent_tt??row?.['Parent TT']??'').trim()!=='';}
 export function hasResolutionRepair(row){return /resolution/i.test(String(row?.repair_details??row?.RepairDetails??''));}
-export function isAnalysisRecord(row){return !hasParentTicket(row)&&!hasResolutionRepair(row);}
+export function hasDuplicateRepair(row){return /duplicate/i.test(String(row?.repair_details??row?.RepairDetails??''));}
+export function isAnalysisRecord(row){return !hasParentTicket(row)&&!hasResolutionRepair(row)&&!hasDuplicateRepair(row);}
 export function analysisRecords(records){return records.filter(isAnalysisRecord);}
 export function slaOutcome(row){
   const raw=row?.source_data&&Object.hasOwn(row.source_data,'Exceeded TIME')?row.source_data['Exceeded TIME']:row?.exceeded_time??row?.['Exceeded TIME'];

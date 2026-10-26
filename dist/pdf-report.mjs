@@ -1,7 +1,7 @@
-import {cowPerformanceChart} from './site-table.mjs?v=20261026range';
-import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261025exceeded';
-import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026range';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261026range';
+import {cowPerformanceChart} from './site-table.mjs?v=20261026all';
+import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
+import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026all';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261026all';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -47,10 +47,11 @@ function textSvg(lines,{width=1480,size=16,color='#816c91',padding=0,lineHeight=
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><rect width="100%" height="100%" fill="white"/>${lines.map((line,i)=>`<text x="${padding}" y="${padding+size+i*lineHeight}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:${size}px;fill:${color}">${esc(line)}</text>`).join('')}</svg>`;
 }
 function periodsSvg(manifest){
-  const width=1480,height=91,gap=18,count=manifest.report.series.length,cw=(width-gap*(count-1))/count;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${manifest.report.series.map((s,i)=>{
+  const periods=manifest.report.definition.comparisonUnavailable?[manifest.report.now]:manifest.report.series;
+  const width=1480,height=91,gap=18,count=periods.length,cw=(width-gap*(count-1))/count;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${periods.map((s,i)=>{
     const x=i*(cw+gap),label=i===0?'Review period':i===1?'Comparison':'Earlier comparison';
-    return `<rect x="${x+1}" y="1" width="${cw-2}" height="88" rx="11" fill="${i?'white':'#faf7fc'}" stroke="${i?'#e9e3ee':'#cfb9df'}"/><g style="font-family:Inter,Segoe UI,Arial,sans-serif"><text x="${x+19}" y="24" style="font-size:12px;fill:#807188">${label}</text><text x="${x+19}" y="49" style="font-size:19px;font-weight:600;fill:#36144f">${esc(s.range?.label||'Unavailable')}</text><text x="${x+19}" y="72" style="font-size:12px;fill:#83768c">${esc(s.range?date(s.range.start)+' - '+date(s.range.end):'Calendar has no matching week')}</text></g>`;
+    return `<rect x="${x+1}" y="1" width="${cw-2}" height="88" rx="11" fill="${i?'white':'#faf7fc'}" stroke="${i?'#e9e3ee':'#cfb9df'}"/><g style="font-family:Inter,Segoe UI,Arial,sans-serif"><text x="${x+19}" y="24" style="font-size:12px;fill:#807188">${label}</text><text x="${x+19}" y="49" style="font-size:19px;font-weight:600;fill:#36144f">${esc(s.range?.label||'Unavailable')}</text><text x="${x+19}" y="72" style="font-size:12px;fill:#83768c">${esc(s.range?(s.range.allYears&&s.range.week?`${s.range.firstYear} - ${s.range.lastYear}`:date(s.range.start)+' - '+date(s.range.end)):'Calendar has no matching week')}</text></g>`;
   }).join('')}</svg>`;
 }
 

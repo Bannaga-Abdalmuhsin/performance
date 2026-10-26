@@ -1,4 +1,4 @@
-import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261025exceeded';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261026all';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -44,10 +44,11 @@ function impactCoverage(records,id,meta){
 }
 function covered(range,meta){
   if(!range||!meta.min_date||!meta.max_date)return {covered:false,partial:false};
+  if(range.ranges){const parts=range.ranges.map(r=>covered(r,meta)),yes=parts.some(p=>p.covered);return {covered:yes,partial:yes&&parts.some(p=>!p.covered||p.partial)};}
   const yes=range.end>=meta.min_date&&range.start<=meta.max_date;
   return {covered:yes,partial:yes&&(range.start<meta.min_date||range.end>meta.max_date)};
 }
-function inRange(rows,range){return range?rows.filter(r=>r.created_date>=range.start&&r.created_date<=range.end):[];}
+function inRange(rows,range){return range?rows.filter(r=>(range.ranges||[range]).some(p=>r.created_date>=p.start&&r.created_date<=p.end)):[];}
 export function change(current,previous,kind='count'){
   if(!num(current)||!num(previous))return null;
   if(previous===0)return current===0?0:100;
@@ -58,7 +59,22 @@ function matchedYearRange(year,monthDay){
   return {start:year+'-01-01',end:`${year}-${String(m).padStart(2,'0')}-${String(Math.min(d,last)).padStart(2,'0')}`,year,label:String(year)};
 }
 export function allWeeksSelected(id,state){return state.week==='all'&&['week','week-year'].includes(REPORTS[id]?.mode);}
+export function allYearsSelected(id,state){return !!(state.allYears||state.year==='all')&&['week','week-year'].includes(REPORTS[id]?.mode);}
 export function fullYearRange(year){return {start:year+'-01-01',end:year+'-12-31',year,label:`${year} · All weeks`};}
+function allYearPeriods(id,state,meta){
+  const first=Number(meta.min_date?.slice(0,4)),last=Number(meta.max_date?.slice(0,4));
+  if(!first||!last||last<first)return [null,null,null];
+  const years=Array.from({length:last-first+1},(_,i)=>first+i),week=Number(state.week),allWeeks=state.week==='all';
+  const combined=offset=>{
+    const ranges=years.filter(year=>allWeeks||weekRange(year,week)).map(year=>allWeeks?fullYearRange(year):offset?shiftWeek(year,week,offset):weekRange(year,week)).filter(Boolean);
+    if(!ranges.length)return null;
+    if(allWeeks)for(const r of ranges){r.start=r.start<meta.min_date?meta.min_date:r.start;r.end=r.end>meta.max_date?meta.max_date:r.end;}
+    const common=[...new Set(ranges.map(r=>r.week))],number=common.length===1?common[0]:null;
+    return {start:ranges.map(r=>r.start).sort()[0],end:ranges.map(r=>r.end).sort().at(-1),ranges,allYears:true,years,week:allWeeks?null:week,firstYear:first,lastYear:last,
+      label:allWeeks?`All years · ${first}–${last}`:`${number?'W'+String(number).padStart(2,'0'):offset===-1?'Previous week':'Earlier week'} · All years`,custom:allWeeks};
+  };
+  return [combined(0),...(!allWeeks&&REPORTS[id].mode==='week'?[combined(-1),combined(-2)]:[null,null])];
+}
 export function validReviewDates(from,to){
   const valid=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(utc(value))&&iso(utc(value))===value;
   return valid(from)&&valid(to)&&from<=to;
@@ -81,6 +97,7 @@ function customReviewPeriods(id,state){
 }
 export function reportPeriods(id,state,meta){
   const mode=REPORTS[id]?.mode||'month',year=Number(state.year||state.period.slice(0,4)),week=Number(state.week||1);
+  if(allYearsSelected(id,state))return allYearPeriods(id,state,meta);
   const custom=customReviewPeriods(id,state);if(custom)return custom;
   if(allWeeksSelected(id,state))return [0,1,2].map(n=>fullYearRange(year-n));
   if(mode==='week')return [weekRange(year,week),shiftWeek(year,week,-1),shiftWeek(year,week,-2)];
@@ -105,7 +122,7 @@ export function buildReport(records,state,profiles,meta,id=state.view){
     return {range,...coverage,rows,summary:coverage.covered?summarize(rows):null};
   });
   const [now,prev]=series;
-  const definition=allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
+  const definition=allYearsSelected(id,state)?{...REPORTS[id],allYears:true,comparisonUnavailable:!prev.range,...(state.week==='all'?{mode:'year',customRange:true,fullYear:true}:{})}:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
   return {id,definition,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
