@@ -59,8 +59,29 @@ function matchedYearRange(year,monthDay){
 }
 export function allWeeksSelected(id,state){return state.week==='all'&&['week','week-year'].includes(REPORTS[id]?.mode);}
 export function fullYearRange(year){return {start:year+'-01-01',end:year+'-12-31',year,label:`${year} · All weeks`};}
+export function validReviewDates(from,to){
+  const valid=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(utc(value))&&iso(utc(value))===value;
+  return valid(from)&&valid(to)&&from<=to;
+}
+export function shiftReviewDate(date,months,{monthEnd=false}={}){
+  const d=new Date(utc(date)),day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+months);
+  const last=new Date(d);last.setUTCMonth(last.getUTCMonth()+1,0);d.setUTCDate(monthEnd?last.getUTCDate():Math.min(day,last.getUTCDate()));return iso(d);
+}
+function reviewRangeLabel(start,end){
+  const format=(value,year)=>new Date(utc(value)).toLocaleDateString('en-GB',{day:'2-digit',month:'short',...(year?{year:'numeric'}:{}),timeZone:'UTC'});
+  return format(start,start.slice(0,4)!==end.slice(0,4))+' – '+format(end,true);
+}
+function customReviewPeriods(id,state){
+  const mode=REPORTS[id]?.mode,range=state.reviewRanges?.[id];
+  if(!range||mode?.includes('week'))return null;
+  if(!validReviewDates(range.from,range.to))throw new Error('Choose a valid From–To review timeframe.');
+  const monthCount=(Number(range.to.slice(0,4))-Number(range.from.slice(0,4)))*12+Number(range.to.slice(5,7))-Number(range.from.slice(5,7))+1;
+  const step=mode==='month'?monthCount:12,preserveMonthEnd=mode==='month'&&range.to===monthRange(range.to.slice(0,7)).end;
+  return [0,1,2].map(i=>{const start=shiftReviewDate(range.from,-i*step),end=shiftReviewDate(range.to,-i*step,{monthEnd:preserveMonthEnd});return {start,end,year:Number(end.slice(0,4)),label:reviewRangeLabel(start,end),custom:true};});
+}
 export function reportPeriods(id,state,meta){
   const mode=REPORTS[id]?.mode||'month',year=Number(state.year||state.period.slice(0,4)),week=Number(state.week||1);
+  const custom=customReviewPeriods(id,state);if(custom)return custom;
   if(allWeeksSelected(id,state))return [0,1,2].map(n=>fullYearRange(year-n));
   if(mode==='week')return [weekRange(year,week),shiftWeek(year,week,-1),shiftWeek(year,week,-2)];
   if(mode==='week-year')return [0,1,2].map(n=>weekRange(year-n,week));
@@ -75,7 +96,7 @@ export function reportPeriods(id,state,meta){
 export function buildReport(records,state,profiles,meta,id=state.view){
   const sourceCoverage=impactCoverage(records,id,meta),scope=reportScope(records,state,profiles,id),ranges=reportPeriods(id,state,{...meta,max_date:sourceCoverage.max_date||meta.max_date});
   // Month/year views compare like-for-like days when the uploaded month is partial.
-  if(REPORTS[id]?.mode==='month-year'&&sourceCoverage.max_date&&ranges[0].start<=sourceCoverage.max_date&&ranges[0].end>sourceCoverage.max_date){
+  if(REPORTS[id]?.mode==='month-year'&&!ranges[0].custom&&sourceCoverage.max_date&&ranges[0].start<=sourceCoverage.max_date&&ranges[0].end>sourceCoverage.max_date){
     const day=Number(sourceCoverage.max_date.slice(8));
     ranges.forEach(r=>r.end=r.end.slice(0,8)+String(Math.min(day,Number(r.end.slice(8)))).padStart(2,'0'));
   }
@@ -84,7 +105,8 @@ export function buildReport(records,state,profiles,meta,id=state.view){
     return {range,...coverage,rows,summary:coverage.covered?summarize(rows):null};
   });
   const [now,prev]=series;
-  return {id,definition:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:REPORTS[id],profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
+  const definition=allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
+  return {id,definition,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }

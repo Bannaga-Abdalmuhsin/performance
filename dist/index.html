@@ -5,8 +5,8 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261026cowtable">
-  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261026cowtable"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261026range">
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261026range"></script>
 </head>
 <body>
 <main id="login-screen" class="auth-screen" aria-labelledby="login-title">
@@ -53,7 +53,11 @@
     <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button primary" id="export-pdf"><span data-icon="file"></span>Export PDF</button></div></div>
     <div class="source-notice" id="source-notice" role="status" hidden><span class="spinner"></span>Reading performance data…</div>
     <section class="filters" aria-label="Performance filters">
-      <label class="filter-field period-field" id="period-field"><span data-icon="calendar"></span><span class="filter-label"><span id="period-label">Review month</span><input id="period-filter" type="month" aria-label="Review month"></span></label>
+      <label class="filter-field period-field" id="period-field" hidden><span data-icon="calendar"></span><span class="filter-label"><span id="period-label">Review month</span><input id="period-filter" type="month" aria-label="Review month"></span></label>
+      <fieldset class="filter-field review-range-field" id="review-range-field">
+        <legend class="sr-only">Review timeframe</legend><div class="review-range-heading"><span id="review-range-label">Review month</span><button type="button" id="reset-review-range" class="review-range-reset" hidden>Reset</button></div>
+        <div class="review-range-inputs"><label><span>From</span><input id="review-from" type="date" aria-label="Review from"></label><span class="review-range-arrow" aria-hidden="true">–</span><label><span>To</span><input id="review-to" type="date" aria-label="Review to"></label></div>
+      </fieldset>
       <label class="filter-field" id="year-field" hidden><span class="filter-label">Review year<select id="year-filter" aria-label="Review year"></select></span></label>
       <label class="filter-field week-field" id="week-field" hidden><span class="filter-label">Review week<select id="week-filter" aria-label="Review week"></select></span></label>
       <label class="filter-field"><span class="filter-label">Region<select id="region-filter"><option value="all">All regions</option></select></span></label>

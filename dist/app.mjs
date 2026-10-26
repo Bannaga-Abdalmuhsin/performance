@@ -1,11 +1,11 @@
 import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,slaOutcome,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261025exceeded';
 import {PerformanceDatabase} from './database.mjs?v=20261025exceeded';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected} from './analysis.mjs?v=20261025exceeded';
-import {renderReport} from './report.mjs?v=20261025exceeded';
-import {createChartExport} from './charts.mjs?v=20261026cowtable';
-import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261026cowtable';
-import {openDashboardExport} from './pdf-report.mjs?v=20261026cowtable';
+import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,validReviewDates} from './analysis.mjs?v=20261026range';
+import {renderReport} from './report.mjs?v=20261026range';
+import {createChartExport} from './charts.mjs?v=20261026range';
+import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261026range';
+import {openDashboardExport} from './pdf-report.mjs?v=20261026range';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -22,7 +22,7 @@ const dateName=(s)=>s?new Date(s.length===10?s+'T12:00:00+03:00':s).toLocaleDate
 const stamp=(s)=>s?new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'}):'—';
 const titles={overview:['Monthly performance','COW passive infrastructure performance, in focus.'],causes:['Root cause analysis','Understand what drives faults and restoration time.'],sites:['Site performance','Prioritize recurring faults and sites with the greatest restoration time.'],tickets:['Ticket register','Trace monthly results to individual source records.'],settings:['User settings','Manage your account, profile and password.']};
 for(const [id,r]of Object.entries(REPORTS))titles[id]=[r.title,({SA:'Services affected',NSA:'Non-service affected'})[r.impact]+' · COW performance for stc.'];
-const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both'};
+const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both',reviewRanges:{}};
 let profiles={},reportDates={},refreshTimer=null,refreshBusy=false;
 let connectionError='',accountEmail='',authBusy=false;
 let data=null,profile={},db=null,member=null,source='none',recordsById=new Map(),toastTimer;
@@ -45,8 +45,11 @@ function fillFilters(){
   $('#period-filter').value=state.period;$('#impact-filter').value=state.service_impact;
   if(data){$('#period-filter').min=data.meta.min_date.slice(0,7);$('#period-filter').max=data.meta.max_date.slice(0,7);}
   const definition=REPORTS[activeReportId()],weekly=definition?.mode.includes('week');
-  $('#period-field').hidden=weekly;$('#week-field').hidden=!weekly;$('#year-field').hidden=!weekly;$('#latest-period').hidden=!weekly;
+  $('#period-field').hidden=true;$('#review-range-field').hidden=!!weekly;$('#week-field').hidden=!weekly;$('#year-field').hidden=!weekly;$('#latest-period').hidden=!weekly;
   $('#period-label').textContent=definition?.mode==='year'?'Review through':'Review month';
+  $('#review-range-label').textContent=definition?.mode==='year'?'Review year':'Review month';
+  if(!weekly){const range=data?activeModel().now.range:null;$('#review-from').value=range?.start||'';$('#review-to').value=range?.end||'';$('#review-from').max=range?.end||'';$('#review-to').min=range?.start||'';if(data){$('#review-from').min=data.meta.min_date;$('#review-to').max=data.meta.max_date.slice(0,4)+'-12-31';}}
+  $('#reset-review-range').hidden=!state.reviewRanges?.[activeReportId()];
   $('#impact-filter').value=definition?.impact==='NSA'?'NSA':'Outage';$('#impact-filter').disabled=true;
   if(data){const first=Number(data.meta.min_date.slice(0,4)),last=Number(data.meta.max_date.slice(0,4));$('#year-filter').innerHTML=Array.from({length:last-first+1},(_,i)=>`<option value="${first+i}">${first+i}</option>`).join('');$('#year-filter').value=String(state.year);}
   $('#week-filter').innerHTML='<option value="all">All weeks (full year)</option>'+Array.from({length:weeksInYear(state.year||2026)},(_,i)=>{const r=weekRange(state.year||2026,i+1);return `<option value="${i+1}">W${String(i+1).padStart(2,'0')} · ${r.start.slice(5)} – ${r.end.slice(5)}</option>`;}).join('');$('#week-filter').value=String(state.week);
@@ -185,6 +188,7 @@ document.addEventListener('click',async(ev)=>{
     if(b.dataset.severity){state.severity=b.dataset.severity;fillFilters();navigate('tickets');return;}
     if(b.dataset.duration){state.duration_bucket=b.dataset.duration;navigate('tickets');return;}
     if(b.id==='latest-period'){state.followLatest=true;selectLatestPeriod();state.page=0;fillFilters();render();return;}
+    if(b.id==='reset-review-range'){delete state.reviewRanges[activeReportId()];state.followLatest=true;selectLatestPeriod();state.page=0;fillFilters();render();return;}
     if(b.id==='refresh-now'){await checkForUpdates(true);return;}
     if(b.dataset.priority){state.site_label=b.dataset.priority;fillFilters();navigate('tickets');return;}
     if(b.dataset.sort){if(state.sort===b.dataset.sort)state.dir*=-1;else{state.sort=b.dataset.sort;state.dir=-1;}render();return;}
@@ -201,7 +205,14 @@ document.addEventListener('click',async(ev)=>{
 // The chart itself is SVG, so it has its own accessible selection handler.
 document.addEventListener('click',ev=>{const target=ev.target.closest('[data-month]');if(target&&dashboardAccessible()){state.period=target.dataset.month;state.year=Number(state.period.slice(0,4));state.followLatest=false;state.page=0;fillFilters();render();}});
 document.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target.matches('[data-month]')){ev.preventDefault();ev.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
-for(const [id,key]of [['period-filter','period'],['region-filter','region'],['district-filter','district'],['impact-filter','service_impact'],['vendor-filter','vendor'],['severity-filter','severity'],['label-filter','site_label'],['cause-filter','root_cause'],['year-filter','year'],['week-filter','week']])$('#'+id).addEventListener('change',ev=>{if(key==='period'&&(!ev.target.value||!coverageFor(data?.meta||{},ev.target.value))){ev.target.value=state.period;toast('Choose a month within the loaded source coverage.');return;}state[key]=['year','week'].includes(key)&&ev.target.value!=='all'?Number(ev.target.value):ev.target.value;if(['period','year','week'].includes(key)){state.followLatest=false;if(key==='period')state.year=Number(state.period.slice(0,4));if(key==='year'){state.period=String(state.year)+state.period.slice(4);if(state.week!=='all')state.week=Math.min(state.week,weeksInYear(state.year));}}state.site_id='all';state.page=0;if(key==='region')state.district='all';fillFilters();render();});
+for(const [id,key]of [['period-filter','period'],['region-filter','region'],['district-filter','district'],['impact-filter','service_impact'],['vendor-filter','vendor'],['severity-filter','severity'],['label-filter','site_label'],['cause-filter','root_cause'],['year-filter','year'],['week-filter','week']])$('#'+id).addEventListener('change',ev=>{if(key==='period'&&(!ev.target.value||!coverageFor(data?.meta||{},ev.target.value))){ev.target.value=state.period;toast('Choose a month within the loaded source coverage.');return;}state[key]=['year','week'].includes(key)&&ev.target.value!=='all'?Number(ev.target.value):ev.target.value;if(['period','year','week'].includes(key)){state.followLatest=false;if(key==='period'){state.year=Number(state.period.slice(0,4));delete state.reviewRanges[activeReportId()];}if(key==='year'){state.period=String(state.year)+state.period.slice(4);if(state.week!=='all')state.week=Math.min(state.week,weeksInYear(state.year));}}state.site_id='all';state.page=0;if(key==='region')state.district='all';fillFilters();render();});
+for(const id of ['review-from','review-to'])$('#'+id).addEventListener('change',()=>{
+  const reportId=activeReportId();if(REPORTS[reportId]?.mode.includes('week'))return;
+  const from=$('#review-from').value,to=$('#review-to').value;
+  if(!validReviewDates(from,to)){toast('Choose valid dates, with From on or before To.');fillFilters();return;}
+  if(data&&(from<data.meta.min_date||to>data.meta.max_date.slice(0,4)+'-12-31')){toast('Choose dates within the source years.');fillFilters();return;}
+  state.reviewRanges={...state.reviewRanges,[reportId]:{from,to}};state.period=to.slice(0,7);state.year=Number(to.slice(0,4));state.followLatest=false;state.page=0;fillFilters();render();
+});
 document.addEventListener('input',ev=>{
   if(ev.target.id==='table-query'){const value=ev.target.value,position=ev.target.selectionStart;state.query=value;state.page=0;render();const input=$('#table-query');input.focus();try{input.setSelectionRange(position,position);}catch{}}
 });

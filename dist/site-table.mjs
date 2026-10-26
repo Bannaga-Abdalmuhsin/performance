@@ -9,6 +9,7 @@ const date=value=>new Date(value+'T12:00:00Z').toLocaleDateString('en-GB',{day:'
 function periodTitle(report){
   const range=report.now.range,prefix=report.definition.impact==='NSA'?'NSA tickets':'Outages';
   if(!range)return prefix+' · Period unavailable';
+  if(range.custom)return `${prefix} · ${date(range.start)} – ${date(range.end)}`;
   if(range.week)return `${prefix} Week #${range.week} · ${date(range.start)} – ${date(range.end)}`;
   return `${prefix} · ${range.label} · ${date(range.start)} – ${date(range.end)}`;
 }

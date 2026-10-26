@@ -27,6 +27,18 @@ test('all application views render after approved sign-in and escape source text
  const form=new Element();form.id='connection-form';for(const listener of events.submit)await listener({preventDefault(){},target:form});assert.equal(elements.get('#dashboard-shell').hidden,false);
  for(const view of ['weekly-sa','weekly-nsa','overview','mom-y','wow-y','yoy','causes','sites','tickets','settings']){app.navigate(view);const html=elements.get('#content').innerHTML;assert.ok(html.length>500,view);assert.ok(!html.includes('NaN'),view);assert.ok(!html.includes('<img src=x'),view);assert.ok(!html.includes('undefined'),view);if(view==='sites'){for(const title of ['COW ID','Region','Outages Counts','Root Cause','Breaches SLA'])assert.ok(html.includes(title),title);assert.ok(!html.includes('Restore hrs'));assert.ok(html.includes('cow-performance-table'));}assert.ok(!/power\s?bi/i.test(html),view);}
 });
+test('monthly and yearly From–To controls filter the real view and preserve weekly controls',()=>{
+ const prior=JSON.parse(JSON.stringify(app.state));
+ Object.assign(app.state,{followLatest:false,period:'2026-08',year:2026,reviewRanges:{},site_id:'all',root_cause:'all',region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',duration_bucket:'all'});app.setData(dataset,'snapshot');app.navigate('overview');
+ assert.equal(elements.get('#review-range-field').hidden,false);assert.equal(elements.get('#period-field').hidden,true);assert.equal(elements.get('#review-from').value,'2026-08-01');assert.equal(elements.get('#review-to').value,'2026-08-31');
+ elements.get('#review-from').value='2026-07-01';elements.get('#review-to').value='2026-08-01';elements.get('#review-from').listeners.change();
+ assert.deepEqual(app.state.reviewRanges.overview,{from:'2026-07-01',to:'2026-08-01'});assert.match(elements.get('#content').innerHTML,/3<small>tickets/);assert.equal(app.state.followLatest,false);
+ app.navigate('sites');assert.match(elements.get('#content').innerHTML,/1 Jul 2026/);assert.match(elements.get('#content').innerHTML,/1 Aug 2026/);
+ app.navigate('yoy');assert.equal(elements.get('#review-range-label').textContent,'Review year');elements.get('#review-from').value='2026-07-01';elements.get('#review-to').value='2026-07-31';elements.get('#review-to').listeners.change();assert.match(elements.get('#content').innerHTML,/1<small>tickets/);
+ elements.get('#review-from').value='2026-08-01';elements.get('#review-from').listeners.change();assert.equal(app.state.reviewRanges.yoy.from,'2026-07-01');assert.equal(elements.get('#review-from').value,'2026-07-01');
+ const week=app.state.week;app.navigate('weekly-sa');assert.equal(elements.get('#review-range-field').hidden,true);assert.equal(elements.get('#week-field').hidden,false);assert.equal(app.state.week,week);
+ Object.assign(app.state,prior);app.setData(dataset,'snapshot');app.navigate('overview');
+});
 test('site drill-down restricts the ticket register to the selected COW',async()=>{
  app.navigate('sites');const button=new Element();button.dataset={site:'COW002'};button.id='';const event={target:{closest:selector=>selector==='button,a'?button:null}};for(const listener of events.click)await listener(event);
  assert.equal(app.state.view,'tickets');assert.equal(app.state.site_id,'COW002');const html=elements.get('#content').innerHTML;assert.ok(html.includes('TT3'));assert.ok(!html.includes('data-ticket="TT1|'));
