@@ -211,6 +211,7 @@ export function dashboardCards(report,state,meta){
   const s=report.now.summary;
   return [
     {id:'card-tickets',label:'No. of tickets KPI',value:n(s?.tickets),unit:'tickets',kind:'value',featured:true,pill:report.definition.impact,spark:areaData(report,state,meta).series[0].values},
+    {id:'card-ticket-change',label:'Ticket change',value:pct(report.ticketChange),metric:report.ticketChange,kind:'ring'},
     {id:'card-sla-performance',label:'Outperformance SLA %',value:ratePct(s?.slaCompliance),metric:s?.slaCompliance??null,delta:num(s?.slaCompliance)&&num(report.prev.summary?.slaCompliance)?s.slaCompliance-report.prev.summary.slaCompliance:null,kind:'sla'},
     {id:'card-duration',label:'Duration KPI',value:hours(s?.durationMinutes),unit:'hrs',kind:'value'},
     {id:'card-duration-change',label:'Duration change',value:pct(report.durationChange),metric:report.durationChange,kind:'ring'},
@@ -224,12 +225,12 @@ function direction(value){return !num(value)?'Unavailable':value<0?'Improved':va
 const ringStatus=c=>c.kind==='sla'?(num(c.metric)?'Within SLA':'Unavailable'):direction(c.metric);
 const ringTone=c=>!num(c.metric)?'neutral':c.kind==='sla'?'good':c.metric===0?'neutral':c.metric<0?'good':'bad';
 function renderKpis(cards){
-  return `<div class="bi-kpis">${cards.slice(0,4).map(c=>(c.kind==='ring'||c.kind==='sla')
+  return `<div class="bi-kpis">${cards.filter(c=>c.kind!=='support').map(c=>(c.kind==='ring'||c.kind==='sla')
     ?`<article class="bi-kpi-ring" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}</div><div class="bi-ring-body">${donutSvg(c.metric,c.label,{rate:c.kind==='sla'})}<div><b class="${ringTone(c)}">${ringStatus(c)}</b>${c.kind==='sla'&&num(c.delta)?'<span>'+pp(c.delta)+'</span>':''}</div></div></article>`
     :`<article class="bi-kpi-value ${c.featured?'featured':''}" data-export-card="${c.id}"><div class="bi-kpi-eyebrow">${esc(c.label)}${c.pill?`<span class="bi-pill">${esc(c.pill)}</span>`:''}</div><div class="bi-kpi-number">${esc(c.value)}${c.unit?`<small>${esc(c.unit)}</small>`:''}</div>${c.spark?sparkline(c.spark,'#e7b5f2'):''}</article>`).join('')}</div>`;
 }
 export function renderSupportingMetrics(report,state,meta){
-  return `<div class="report-metrics bi-supporting-metrics">${dashboardCards(report,state,meta).slice(4).map(c=>`<div data-export-card="${c.id}"><span>${esc(c.label)}</span><b>${esc(c.value)}${c.unit?` <small>${esc(c.unit)}</small>`:''}</b></div>`).join('')}</div>`;
+  return `<div class="report-metrics bi-supporting-metrics">${dashboardCards(report,state,meta).filter(c=>c.kind==='support').map(c=>`<div data-export-card="${c.id}"><span>${esc(c.label)}</span><b>${esc(c.value)}${c.unit?` <small>${esc(c.unit)}</small>`:''}</b></div>`).join('')}</div>`;
 }
 export function cardSvg(c){
   const w=340,h=c.kind==='support'?108:160,ink=c.featured?'white':INK,muted=c.featured?'#e1d1ec':MUTED;

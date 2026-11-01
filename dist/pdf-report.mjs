@@ -1,7 +1,7 @@
 import {cowPerformanceChart} from './site-table.mjs?v=20261026all';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
 import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026all';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261026all';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261101cards';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -112,10 +112,13 @@ export async function createDashboardPdf(manifest,{rasterize=rasterizeSvg,assetL
   addPage();
   const periodsText=periodsSvg(manifest),periods=await image(periodsText),ph=dimensions(periodsText).height*CW/1480;
   page.drawImage(periods,{x:M,y:y-ph,width:CW,height:ph});y-=ph+17;
-  const cards=manifest.items.filter(i=>i.type==='card').map(i=>i.card),cardWidth=(CW-3*GAP)/4;
-  for(let start=0;start<cards.length;start+=4){
-    const group=cards.slice(start,start+4),height=Math.max(...group.map(c=>dimensions(cardSvg(c)).height))*cardWidth/340;ensure(height);
-    for(let i=0;i<group.length;i++){const svg=cardSvg(group[i]),h=dimensions(svg).height*cardWidth/340;page.drawImage(await image(svg),{x:M+i*(cardWidth+GAP),y:y-h,width:cardWidth,height:h});}y-=height+GAP;
+  const cards=manifest.items.filter(i=>i.type==='card').map(i=>i.card);
+  for(const list of [cards.filter(c=>c.kind!=='support'),cards.filter(c=>c.kind==='support')]){
+    const columns=list.length>4?5:4,cardWidth=(CW-(columns-1)*GAP)/columns;
+    for(let start=0;start<list.length;start+=columns){
+      const group=list.slice(start,start+columns),height=Math.max(...group.map(c=>dimensions(cardSvg(c)).height))*cardWidth/340;ensure(height);
+      for(let i=0;i<group.length;i++){const svg=cardSvg(group[i]),h=dimensions(svg).height*cardWidth/340;page.drawImage(await image(svg),{x:M+i*(cardWidth+GAP),y:y-h,width:cardWidth,height:h});}y-=height+GAP;
+    }
   }
   const rows=exportChartRows(manifest),totalParts=rows.reduce((n,row)=>n+row.charts.length,0);let completed=0;
   for(const row of rows){

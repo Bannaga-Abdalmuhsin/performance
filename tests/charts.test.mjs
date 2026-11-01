@@ -13,7 +13,7 @@ test('six dashboards omit compliance and comments beneath cards and chart panels
  for(const id of Object.keys(CHART_PLANS)){
   const report=buildReport(rows,state,profiles,meta,id),html=renderReport(report,state,meta);
   for(const removed of ['SLA compliance','eligible','Recorded tickets','distinct ticket numbers','Within source date range','bi-kpi-foot','bi-kpi-reference','bi-scroll-hint','bi-note'])assert.ok(!html.includes(removed),id+' '+removed);
-  assert.ok(html.includes('COWs with 3+ TTs'));assert.ok(html.includes('Repeat rate (3+ TTs)'));assert.ok(html.includes('MTTR'));assert.equal((html.match(/data-export-card=/g)||[]).length,8);
+  assert.ok(html.includes('COWs with 3+ TTs'));assert.ok(html.includes('Repeat rate (3+ TTs)'));assert.ok(html.includes('MTTR'));assert.equal((html.match(/data-export-card=/g)||[]).length,9);assert.ok(html.includes('data-export-card="card-ticket-change"'));assert.ok(html.includes('data-export-card="card-sla-performance"'));
  }
 });
 test('chart families match the five source pages and extend consistently to YoY',()=>{
@@ -23,7 +23,7 @@ test('chart families match the five source pages and extend consistently to YoY'
   overview:['area','funnel','line','combo'],
   'mom-y':['line','combo'],'wow-y':['line','combo'],yoy:['line','combo','stacked-combo']
  };
- for(const [id,types]of Object.entries(expected)){const report=buildReport(rows,state,profiles,meta,id),html=renderChartBoard(report,state,meta);for(const type of types)assert.ok(html.includes(`data-chart-kind="${type}"`),id+' '+type);assert.equal((html.match(/class="bi-donut-svg"/g)||[]).length,2,id);assert.ok(!html.includes('NaN'),id);}
+ for(const [id,types]of Object.entries(expected)){const report=buildReport(rows,state,profiles,meta,id),html=renderChartBoard(report,state,meta);for(const type of types)assert.ok(html.includes(`data-chart-kind="${type}"`),id+' '+type);assert.equal((html.match(/class="bi-donut-svg"/g)||[]).length,3,id);assert.ok(!html.includes('NaN'),id);}
  assert.equal(CHART_PLANS['weekly-sa'].periods,2);assert.equal(CHART_PLANS['weekly-nsa'].periods,3);assert.equal(CHART_PLANS.overview.periods,2);assert.equal(CHART_PLANS['mom-y'].periods,3);
 });
 test('comparison bar series use the visible periods and independently computed percentages',()=>{

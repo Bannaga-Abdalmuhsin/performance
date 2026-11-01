@@ -2,10 +2,10 @@ import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCa
 import {PerformanceDatabase} from './database.mjs?v=20261026all';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261026all';
-import {renderReport} from './report.mjs?v=20261026all';
-import {createChartExport} from './charts.mjs?v=20261026all';
+import {renderReport} from './report.mjs?v=20261101cards';
+import {createChartExport} from './charts.mjs?v=20261101cards';
 import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261026all';
-import {openDashboardExport} from './pdf-report.mjs?v=20261026all';
+import {openDashboardExport} from './pdf-report.mjs?v=20261101cards';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};

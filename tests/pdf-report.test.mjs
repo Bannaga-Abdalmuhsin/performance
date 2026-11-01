@@ -23,7 +23,7 @@ test('each report exports exactly its dashboard cards, full source charts and se
   const selection={...state,view:id,reportView:id},result=createDashboardExport({...options,state:selection}),expected=buildReport(records,selection,{},meta,id);
   assert.equal(result.report.now.summary?.tickets,expected.now.summary?.tickets,id);assert.equal(result.report.now.summary?.durationMinutes,expected.now.summary?.durationMinutes,id);
   assert.deepEqual(result.cards,dashboardCards(expected,selection,meta));assert.deepEqual(result.sections,dashboardSections(expected,selection,meta));
-  assert.equal(result.cards.length,8);assert.ok(result.items.some(i=>i.id==='card-repeat-rate'));assert.ok(!/SLA compliance|eligible|Recorded tickets|Within source date range/.test(JSON.stringify(result.cards)));
+  assert.equal(result.cards.length,9);assert.ok(result.items.some(i=>i.id==='card-repeat-rate'));assert.ok(result.items.some(i=>i.id==='card-ticket-change'));assert.ok(result.items.some(i=>i.id==='card-sla-performance'));assert.ok(!/SLA compliance|eligible|Recorded tickets|Within source date range/.test(JSON.stringify(result.cards)));
   assert.equal(result.title,REPORTS[id].title);assert.ok(result.items.filter(i=>i.type==='chart').length>=6);
  }
 });
@@ -34,8 +34,8 @@ test('scope captures filters and register search without changing state or sourc
  const absent=createDashboardExport({...options,state:{...state,view:'tickets',reportView:'weekly-nsa',query:'no match'}});assert.equal(absent.report.now.covered,true);assert.equal(absent.report.now.summary.tickets,0);assert.equal(absent.report.sourceCoverage.max_date,'2026-08-31');
 });
 test('missing periods and zero baselines retain the dashboard comparison rules',()=>{
- const unavailable=createDashboardExport({...options,state:{...state,period:'2023-01',year:2023}});assert.equal(unavailable.report.now.summary,null);assert.equal(unavailable.cards[0].value,'—');
- const nsa=createDashboardExport({...options,state:{...state,view:'weekly-nsa'}});assert.equal(nsa.report.now.partial,true);assert.equal(nsa.report.now.summary.tickets,1);assert.equal(nsa.cards[1].metric,100);
+ const unavailable=createDashboardExport({...options,state:{...state,period:'2023-01',year:2023}});assert.equal(unavailable.report.now.summary,null);assert.equal(unavailable.cards[0].value,'—');assert.equal(unavailable.cards.find(c=>c.id==='card-ticket-change').metric,null);
+ const nsa=createDashboardExport({...options,state:{...state,view:'weekly-nsa'}});assert.equal(nsa.report.now.partial,true);assert.equal(nsa.report.now.summary.tickets,1);assert.equal(nsa.cards.find(c=>c.id==='card-sla-performance').metric,100);assert.equal(nsa.cards.find(c=>c.id==='card-ticket-change').metric,100);
 });
 test('All weeks and grouped vendors preserve matching full calendar years',()=>{
  const source=[row('a','2026-01-01',{vendor:'NSN'}),row('b','2026-08-31',{vendor:'Cisco'}),row('c','2026-08-31',{vendor:'Huawei'}),row('d','2025-12-31',{vendor:'Uncategorized'})],selected={...state,view:'weekly-sa',week:'all',vendor:'TETRA'};

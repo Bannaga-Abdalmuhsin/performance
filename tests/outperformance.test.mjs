@@ -34,16 +34,16 @@ test('all six reports and exports compare within/exceeded counts and within-SLA 
    assert.equal(data.unrecorded[index],manual.length-within-exceeded,id);
   }
   const item=dashboardSections(report,selected,meta).flatMap(s=>s.charts).find(c=>c.id===id+'-outperformance-sla');assert(item,id);assert.deepEqual(item.data,data);assert.match(item.svg,/Within SLA/);assert.match(item.svg,/Exceeded SLA/);assert(!/fewer tickets|more tickets|NaN|Infinity|undefined/.test(item.svg));
-  const manifest=createDashboardExport({records,state:selected,meta});assert.equal(manifest.cards[1].id,'card-sla-performance');assert.equal(manifest.cards[1].metric,card.metric);
+  const manifest=createDashboardExport({records,state:selected,meta});assert.equal(manifest.cards.find(c=>c.id==='card-sla-performance').metric,card.metric);const ticket=manifest.cards.find(c=>c.id==='card-ticket-change');assert.equal(ticket.metric,report.ticketChange,id);assert.equal(ticket.kind,'ring');assert.notEqual(ticket.metric,card.metric,id);
  }
  const sa=buildReport(records,state,{},meta),nsa=buildReport(records,{...state,view:'weekly-nsa'}, {},meta);
- assert.equal(sa.now.summary.slaCompliance,75);assert.equal(sa.prev.summary.slaCompliance,25);assert.equal(dashboardCards(sa,state,meta)[1].delta,50);assert.equal(nsa.now.summary.slaCompliance,50);
+ assert.equal(sa.now.summary.slaCompliance,75);assert.equal(sa.prev.summary.slaCompliance,25);assert.equal(dashboardCards(sa,state,meta).find(c=>c.id==='card-sla-performance').delta,50);assert.equal(nsa.now.summary.slaCompliance,50);
  assert.equal(JSON.stringify(records),before);
 });
 
 test('no recorded SLA data stays unavailable; zero percent and percentage-point changes are real values',()=>{
  const missing=buildReport([row('2026-10-20','NA')],state,{},meta);assert.equal(missing.now.summary.slaCompliance,null);assert.equal(missing.now.summary.slaUnrecorded,1);assert.match(outperformanceSvg(slaPerformanceData(missing)),/Comparison unavailable/);
- const zero=buildReport([...rows('2026-10-20',0,2),...rows('2026-10-13',1,0)],state,{},meta),card=dashboardCards(zero,state,meta)[1];assert.equal(card.metric,0);assert.equal(card.delta,-100);assert.match(outperformanceSvg(slaPerformanceData(zero)),/>0\.0%</);assert.match(outperformanceSvg(slaPerformanceData(zero)),/-100\.0 pp/);
+ const zero=buildReport([...rows('2026-10-20',0,2),...rows('2026-10-13',1,0)],state,{},meta),card=dashboardCards(zero,state,meta).find(c=>c.id==='card-sla-performance');assert.equal(card.metric,0);assert.equal(card.delta,-100);assert.match(outperformanceSvg(slaPerformanceData(zero)),/>0\.0%</);assert.match(outperformanceSvg(slaPerformanceData(zero)),/-100\.0 pp/);
  const all=buildReport([...rows('2026-01-02',1,1),...rows('2025-12-02',3,1)],{...state,week:'all'}, {},meta);assert.equal(all.now.summary.slaCompliance,50);assert.equal(all.prev.summary.slaCompliance,75);
 });
 
@@ -52,9 +52,9 @@ test('raw uploads preserve Exceeded TIME and derive outcomes without relying on 
  assert.equal(result.records[0].exceeded_time,'NOT EXCEED');assert.equal(result.records[1].exceeded_time,'0.01');assert.deepEqual(result.records.map(slaOutcome),['within','exceeded']);assert.equal(result.records[1].source_data['Exceeded TIME'],0.01);
 });
 
-test('PDF exports contain the authoritative SLA card and the full within/exceeded comparison graphic',async()=>{
+test('PDF exports retain independent ticket-change and SLA cards plus the full within/exceeded comparison graphic',async()=>{
  const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64'));
- const full=createDashboardExport({records,state,meta}),manifest=selectExportItems(full,['card-sla-performance','weekly-sa-outperformance-sla']),rendered=[];
+ const full=createDashboardExport({records,state,meta}),manifest=selectExportItems(full,['card-ticket-change','card-sla-performance','weekly-sa-outperformance-sla']),rendered=[];
  const pdf=await createDashboardPdf(manifest,{rasterize:async svg=>{rendered.push(svg);return png;},assetLoader:async()=>png});
- assert.deepEqual(pdf.exportedIds,['card-sla-performance','weekly-sa-outperformance-sla']);assert.equal(pdf.chartPartCount,1);assert.match(rendered.join(''),/75\.0%/);assert.match(rendered.join(''),/Within 3 \(75\.0%\) \| Exceeded 1 \(25\.0%\) \| Unrecorded 1/);assert.match(rendered.join(''),/50\.0 pp/);assert(!(rendered.join('').includes('fewer tickets')));assert((await PDFDocument.load(pdf.bytes)).getPageCount()>0);
+ assert.deepEqual(pdf.exportedIds,['card-ticket-change','card-sla-performance','weekly-sa-outperformance-sla']);assert.match(rendered.join(''),/Ticket change/);assert.match(rendered.join(''),/\+25\.0%/);assert.equal(pdf.chartPartCount,1);assert.match(rendered.join(''),/75\.0%/);assert.match(rendered.join(''),/Within 3 \(75\.0%\) \| Exceeded 1 \(25\.0%\) \| Unrecorded 1/);assert.match(rendered.join(''),/50\.0 pp/);assert(!(rendered.join('').includes('fewer tickets')));assert((await PDFDocument.load(pdf.bytes)).getPageCount()>0);
 });
