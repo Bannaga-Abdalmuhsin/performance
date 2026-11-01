@@ -2,10 +2,10 @@ import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCa
 import {PerformanceDatabase} from './database.mjs?v=20261026all';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261026all';
-import {renderReport} from './report.mjs?v=20261101cards';
-import {createChartExport} from './charts.mjs?v=20261101cards';
-import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261026all';
-import {openDashboardExport} from './pdf-report.mjs?v=20261101cards';
+import {renderReport} from './report.mjs?v=20261101sites';
+import {createChartExport} from './charts.mjs?v=20261101sites';
+import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261101sites';
+import {openDashboardExport} from './pdf-report.mjs?v=20261101sites';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -22,7 +22,7 @@ const dateName=(s)=>s?new Date(s.length===10?s+'T12:00:00+03:00':s).toLocaleDate
 const stamp=(s)=>s?new Date(s).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Riyadh'}):'—';
 const titles={overview:['Monthly performance','COW passive infrastructure performance, in focus.'],causes:['Root cause analysis','Understand what drives faults and restoration time.'],sites:['Site performance','Prioritize recurring faults and sites with the greatest restoration time.'],tickets:['Ticket register','Trace monthly results to individual source records.'],settings:['User settings','Manage your account, profile and password.']};
 for(const [id,r]of Object.entries(REPORTS))titles[id]=[r.title,({SA:'Services affected',NSA:'Non-service affected'})[r.impact]+' · COW performance for stc.'];
-const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both',reviewRanges:{},allYears:false};
+const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both',reviewRanges:{},allYears:false,siteMinTickets:0};
 let profiles={},reportDates={},refreshTimer=null,refreshBusy=false;
 let connectionError='',accountEmail='',authBusy=false;
 let data=null,profile={},db=null,member=null,source='none',recordsById=new Map(),toastTimer;
@@ -114,10 +114,10 @@ function sortHeader(label,key){return `<button data-sort="${key}">${label}${icon
 function sorted(rows){return [...rows].sort((a,b)=>{const x=a[state.sort],y=b[state.sort];if(x===null||x===undefined)return y===null||y===undefined?0:1;if(y===null||y===undefined)return -1;return (typeof x==='number'?x-y:String(x).localeCompare(String(y)))*state.dir;});}
 function pager(total,size=25){const max=Math.max(1,Math.ceil(total/size));state.page=Math.min(state.page,max-1);return `<div class="pagination"><span>${total?number(state.page*size+1)+'–'+number(Math.min((state.page+1)*size,total)):'0'} of ${number(total)} ${state.view==='sites'?'sites':'records'}</span><div><button data-page="prev" ${!state.page?'disabled':''} aria-label="Previous page">Previous</button><span>Page ${state.page+1} / ${max}</span><button data-page="next" ${state.page>=max-1?'disabled':''} aria-label="Next page">Next</button></div></div>`;}
 function siteTable(records,compact=false){
-  const report=activeModel(),table=cowPerformanceData(report,{records,query:compact?'':state.query,sort:compact?'tickets':state.sort,dir:compact?-1:state.dir}),filteredTotal=table.rows.length;
+  const report=activeModel(),table=cowPerformanceData(report,{records,query:compact?'':state.query,sort:compact?'tickets':state.sort,dir:compact?-1:state.dir,minTickets:compact?0:state.siteMinTickets}),filteredTotal=table.rows.length;
   if(compact)table.rows=table.rows.slice(0,5);
   else{state.page=Math.min(state.page,Math.max(0,Math.ceil(filteredTotal/25)-1));table.rows=table.rows.slice(state.page*25,state.page*25+25);}
-  return `<section class="panel cow-performance-panel"><div class="panel-title"><div><h2>${compact?'Sites to review':'Site performance detail'}</h2></div>${compact?'<button class="text-button" data-go="sites">View all sites '+icon('arrow')+'</button>':`<span class="section-count">${number(table.total)} COWs</span>`}</div>${compact?'':`<div class="table-tools"><label class="search">${icon('search')}<input id="table-query" type="search" placeholder="Search COW, location, region or root cause" value="${e(state.query)}" aria-label="Search sites"></label></div>`}${renderCowPerformanceTable(table,compact?{}:{sortHeader,sort:state.sort,dir:state.dir})}${compact?'':pager(filteredTotal)}</section>`;
+  return `<section class="panel cow-performance-panel"><div class="panel-title"><div><h2>${compact?'Sites to review':'Site performance detail'}</h2></div>${compact?'<button class="text-button" data-go="sites">View all sites '+icon('arrow')+'</button>':`<span class="section-count">${number(filteredTotal)} COWs</span>`}</div>${compact?'':`<div class="table-tools"><label class="search">${icon('search')}<input id="table-query" type="search" placeholder="Search COW, location, region or root cause" value="${e(state.query)}" aria-label="Search sites"></label><label class="cow-count-filter">${report.definition.impact==='NSA'?'Ticket count':'Outage count'}<select id="site-count-filter" aria-label="COW count filter"><option value="0" ${Number(state.siteMinTickets)!==3?'selected':''}>All COWs</option><option value="3" ${Number(state.siteMinTickets)===3?'selected':''}>3+ ${report.definition.impact==='NSA'?'tickets':'outages'}</option></select></label></div>`}${renderCowPerformanceTable(table,compact?{}:{sortHeader,sort:state.sort,dir:state.dir})}${compact?'':pager(filteredTotal)}</section>`;
 }
 function sitesView(){const rows=periodRecords();return `${metricStrip(summarize(rows))}${siteTable(rows)}`;}
 function ticketView(){const all=periodRecords(),rows=sorted(all.filter(r=>matchesTicketQuery(r,state.query)));state.page=Math.min(state.page,Math.max(0,Math.ceil(rows.length/25)-1));const visible=rows.slice(state.page*25,state.page*25+25);return `<section class="panel"><div class="panel-title"><div><h2>Ticket register</h2><p>${number(all.length)} records in ${e(activeModel().now.range?.label||monthName(state.period))}${state.site_id!=='all'?' · '+e(state.site_id):''}</p></div></div><div class="table-tools"><label class="search">${icon('search')}<input id="table-query" type="search" placeholder="Search TT, COW, root cause or repair" aria-label="Search tickets" value="${e(state.query)}"></label><span class="section-count">All timestamps use Saudi Arabia time</span></div><div class="data-table-wrap"><table class="data-table"><thead><tr><th>${sortHeader('Ticket / COW','ticket_number')}</th><th>${sortHeader('Created','created_at')}</th><th>Region / district</th><th>Impact</th><th>Root cause</th><th class="right">${sortHeader('Restore hrs','duration_minutes')}</th><th>SLA outcome</th></tr></thead><tbody>${visible.map(r=>`<tr><td><button class="table-link" data-ticket="${e(r.id)}">${e(r.ticket_number)}</button><span class="subline">${e(r.site_id||'Unknown')} &nbsp;<span class="priority ${r.site_label?.includes('VIP')?'vip':''}">${e(r.site_label)}</span></span></td><td>${e(dateName(r.created_date))}<span class="subline">${e(stamp(r.created_at).split(', ')[1]||'')}</span></td><td>${e(r.region)}<span class="subline">${e(r.district)}</span></td><td><span class="impact ${r.service_impact==='No impact'?'no':''}">${e(r.service_impact)}</span><span class="subline">${e(r.severity)}</span></td><td>${e(rootCauseGroup(r.root_cause))}${r.quality_flags?.length?'<span class="ticket-alert" title="Source data check">△</span>':''}</td><td class="right">${hours(r.duration_minutes)}</td><td>${slaOutcome(r)==='exceeded'?'<span class="rate bad">Exceeded SLA</span>':slaOutcome(r)==='within'?'<span class="rate good">Within SLA</span>':'<span class="muted">Unrecorded</span>'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No tickets match these filters.</td></tr>'}</tbody></table></div>${pager(rows.length)}</section>`;}
@@ -199,7 +199,7 @@ document.addEventListener('click',async(ev)=>{
     if(b.id==='more-filters'){const el=$('#extra-filters');el.hidden=!el.hidden;b.setAttribute('aria-expanded',String(!el.hidden));return;}
     if(b.id==='menu-toggle'){$('#sidebar').classList.toggle('open');return;}
     if(b.id==='account-button'){navigate('settings');return;}
-    if(b.id==='reset-filters'){Object.assign(state,{region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',scope:'all',service_impact:'Outage',duration_bucket:'all',page:0});fillFilters();render();return;}
+    if(b.id==='reset-filters'){Object.assign(state,{region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',scope:'all',service_impact:'Outage',duration_bucket:'all',siteMinTickets:0,page:0});fillFilters();render();return;}
     if(b.id==='logout-db'){await signOut();return;}
   }catch(err){toast(err.message);b.disabled=false;}
 });
@@ -213,6 +213,9 @@ for(const id of ['review-from','review-to'])$('#'+id).addEventListener('change',
   if(!validReviewDates(from,to)){toast('Choose valid dates, with From on or before To.');fillFilters();return;}
   if(data&&(from<data.meta.min_date||to>data.meta.max_date.slice(0,4)+'-12-31')){toast('Choose dates within the source years.');fillFilters();return;}
   state.allYears=false;state.reviewRanges={...state.reviewRanges,[reportId]:{from,to}};state.period=to.slice(0,7);state.year=Number(to.slice(0,4));state.followLatest=false;state.page=0;fillFilters();render();
+});
+document.addEventListener('change',ev=>{
+  if(ev.target.id==='site-count-filter'&&dashboardAccessible()&&state.view==='sites'){state.siteMinTickets=Number(ev.target.value)===3?3:0;state.page=0;render();}
 });
 document.addEventListener('input',ev=>{
   if(ev.target.id==='table-query'){const value=ev.target.value,position=ev.target.selectionStart;state.query=value;state.page=0;render();const input=$('#table-query');input.focus();try{input.setSelectionRange(position,position);}catch{}}

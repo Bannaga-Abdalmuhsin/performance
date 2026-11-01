@@ -120,3 +120,13 @@ test('grouped vendor and Sites Label filters, chart drill-downs, and new loads p
  source.records.push(record('LABEL-NEW',{site_label:'na',vendor:'Others'}));app.setData(source,'snapshot');assert.match(elements.get('#content').innerHTML,/LABEL-NEW/);
  assert.equal(JSON.stringify({...source,records:source.records.slice(0,3)}),before);assert.equal(source.records.at(-1).site_label,'na');
 });
+test('site count control filters the real table, resets pagination, and leaves analysis totals intact',()=>{
+ const prior=JSON.parse(JSON.stringify(app.state));
+ const source={meta:{...dataset.meta,record_count:6},records:[...Array.from({length:3},(_,i)=>record('THREE-'+i,{site_id:'COWTHREE'})),...Array.from({length:2},(_,i)=>record('TWO-'+i,{site_id:'COWTWO'})),record('TWO-DUP',{site_id:'COWTWO',repair_details:'Duplicate TT'})]};
+ Object.assign(app.state,{followLatest:false,allYears:false,period:'2026-08',year:2026,week:31,reviewRanges:{},site_id:'all',root_cause:'all',region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',duration_bucket:'all',siteMinTickets:0,query:''});
+ app.setData(source,'snapshot');app.navigate('overview');app.navigate('sites');assert.match(elements.get('#content').innerHTML,/id="site-count-filter"/);assert.match(elements.get('#content').innerHTML,/data-site="COWTWO"/);
+ app.state.page=5;for(const listener of events.change)listener({target:{id:'site-count-filter',value:'3'}});assert.equal(app.state.siteMinTickets,3);assert.equal(app.state.page,0);assert.match(elements.get('#content').innerHTML,/data-site="COWTHREE"/);assert(!elements.get('#content').innerHTML.includes('data-site="COWTWO"'));assert.match(elements.get('#content').innerHTML,/3\+ outages/);
+ for(const listener of events.change)listener({target:{id:'site-count-filter',value:'0'}});assert.match(elements.get('#content').innerHTML,/data-site="COWTWO"/);assert.equal(app.state.siteMinTickets,0);
+ app.state.siteMinTickets=3;app.navigate('overview');assert.match(elements.get('#content').innerHTML,/5<small>tickets/);
+ Object.assign(app.state,prior);app.setData(dataset,'snapshot');app.navigate('overview');
+});

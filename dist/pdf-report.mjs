@@ -1,7 +1,7 @@
-import {cowPerformanceChart} from './site-table.mjs?v=20261026all';
+import {cowPerformanceChart} from './site-table.mjs?v=20261101sites';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
 import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026all';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261101cards';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261101sites';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -19,9 +19,10 @@ export function createDashboardExport({records,state,profiles={},meta,generatedA
     report.scope=report.scope.filter(matches);report.series=report.series.map(s=>{const rows=s.rows.filter(matches);return {...s,rows,summary:s.covered?summarize(rows):null};});
     [report.now,report.prev]=report.series;report.ticketChange=change(report.now.summary?.tickets,report.prev.summary?.tickets);report.durationChange=change(report.now.summary?.durationMinutes,report.prev.summary?.durationMinutes);
   }
-  const cards=dashboardCards(report,selection,meta),sections=selection.view==='sites'?[{id:'cow-performance',layout:'one',charts:[cowPerformanceChart(report,{query:selection.query,sort:selection.sort,dir:selection.dir})]}]:dashboardSections(report,selection,meta);
+  const cards=dashboardCards(report,selection,meta),sections=selection.view==='sites'?[{id:'cow-performance',layout:'one',charts:[cowPerformanceChart(report,{query:selection.query,sort:selection.sort,dir:selection.dir,minTickets:selection.siteMinTickets})]}]:dashboardSections(report,selection,meta);
   const items=[...cards.map(card=>({id:card.id,label:card.label,type:'card',card})),...sections.flatMap(section=>section.charts.map(chart=>({id:chart.id,label:chart.title,type:'chart',chart,section:section.id,layout:section.layout})))];
   const selectedFilters=filterFields.filter(([key])=>selection[key]&&selection[key]!=='all').map(([key,label])=>`${label}: ${selection[key]}`);
+  if(selection.view==='sites'&&Number(selection.siteMinTickets)===3)selectedFilters.push('COW table: 3+ '+(report.definition.impact==='NSA'?'tickets':'outages'));
   if(['tickets','sites'].includes(selection.view)&&selection.query)selectedFilters.push(`Search: ${selection.query}`);
   const manifest={report,state:selection,meta:{...meta},cards,sections,items,selectedFilters,generatedAt:new Date(generatedAt),title:report.definition.title,period:report.now.range?.label||'Unavailable',filename:`stc-COW-${id}-${safeFile(report.now.range?.label||selection.period)}-dashboard.pdf`};
   return selectedIds===undefined?manifest:selectExportItems(manifest,selectedIds);

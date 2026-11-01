@@ -54,3 +54,18 @@ test('site PDF exports every matching COW with repeated table headers beyond scr
 test('empty site tables render and export a clear empty state',()=>{
  const chart=cowPerformanceChart(report([]));assert.match(renderCowPerformanceTable(chart.data),/No matching COWs/);assert.match(chart.svg,/No matching COWs/);assert.equal(exportChartParts(chart).length,1);
 });
+test('3+ outages includes the threshold, excludes ineligible faults, and combines with table search',()=>{
+ const extra=[row('two-a',{site_id:'COW002'}),row('two-b',{site_id:'COW002'}),row('two-child',{site_id:'COW002',parent_tt:'PR123'}),row('two-resolution',{site_id:'COW002',repair_details:'Resolution fixation'}),row('two-duplicate',{site_id:'COW002',repair_details:'Duplicate TT'}),row('two-outside',{site_id:'COW002',created_date:'2026-10-18'}),...Array.from({length:4},(_,i)=>row('four-'+i,{site_id:'COW004'}))];
+ const source=[...records,...extra],before=JSON.stringify(source),model=report(source),data=cowPerformanceData(model,{minTickets:3});
+ assert.deepEqual(data.labels,['COW004','COW009']);assert.equal(data.total,2);assert.equal(data.rows.find(r=>r.name==='COW009').tickets,3);assert.equal(data.rows.find(r=>r.name==='COW009').breached,1);assert.equal(data.rows.find(r=>r.name==='COW004').breached,0);
+ assert.match(data.title,/3\+ outages/);assert.deepEqual(cowPerformanceData(model,{minTickets:3,query:'PMR'}).labels,['COW009']);assert.equal(cowPerformanceData(model,{minTickets:3,query:'COW002'}).rows.length,0);
+ assert(cowPerformanceData(model,{minTickets:0}).labels.includes('COW002'));assert.equal(JSON.stringify(source),before);
+ const nsa=cowPerformanceData(report([...records,...Array.from({length:3},(_,i)=>row('nsa-'+i,{site_id:'COWNSA',service_impact:'No impact'}))],'weekly-nsa'),{minTickets:3});assert.deepEqual(nsa.labels,['COWNSA']);assert.match(nsa.title,/3\+ tickets/);
+});
+test('3+ outage PDF table exports all qualifying COWs beyond pagination and ignores the table filter on other reports',()=>{
+ const source=[...Array.from({length:31},(_,i)=>Array.from({length:3},(_,j)=>row('repeat-'+i+'-'+j,{site_id:'COW'+String(i).padStart(3,'0')}))).flat(),row('low-a',{site_id:'LOW'}),row('low-b',{site_id:'LOW'})],selected={...state,siteMinTickets:3,page:99},manifest=createDashboardExport({records:source,state:selected,meta}),chart=manifest.items.find(i=>i.chart?.kind==='table').chart;
+ assert.equal(chart.data.rows.length,31);assert(chart.data.rows.every(r=>r.tickets>=3));assert(!chart.data.labels.includes('LOW'));assert.deepEqual(manifest.selectedFilters,['COW table: 3+ outages']);
+ const parts=exportChartRows(selectExportItems(manifest,[chart.id])).flatMap(r=>r.charts);assert.deepEqual(parts.flatMap(p=>p.data.labels),chart.data.labels);assert.equal(parts.length,3);assert(parts.every(p=>p.svg.includes('3+ outages')));
+ const searched=createDashboardExport({records:source,state:{...selected,query:'COW030'},meta});assert.deepEqual(searched.items.find(i=>i.chart?.kind==='table').chart.data.labels,['COW030']);assert.deepEqual(searched.selectedFilters,['COW table: 3+ outages','Search: COW030']);
+ const normal=createDashboardExport({records:source,state:{...selected,view:'weekly-sa'},meta});assert.deepEqual(normal.selectedFilters,[]);assert.equal(normal.report.now.summary.tickets,95);
+});

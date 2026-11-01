@@ -1,4 +1,4 @@
-import {cowPerformanceParts} from './site-table.mjs?v=20261026all';
+import {cowPerformanceParts} from './site-table.mjs?v=20261101sites';
 import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261026all';
 import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261026all';
 

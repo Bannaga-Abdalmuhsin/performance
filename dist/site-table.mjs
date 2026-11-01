@@ -15,16 +15,18 @@ function periodTitle(report){
   return `${prefix} · ${range.label} · ${date(range.start)} – ${date(range.end)}`;
 }
 
-export function cowPerformanceData(report,{records=report.now.rows,query='',sort='tickets',dir=-1}={}){
+export function cowPerformanceData(report,{records=report.now.rows,query='',sort='tickets',dir=-1,minTickets=0}={}){
   let rows=groupBy(records,'site_id').filter(g=>g.name.trim()&&g.name.trim().toLowerCase()!=='unknown').map(g=>{
     const regionNames=[...new Set(g.rows.map(r=>r.region||'Unknown'))],causes=groupBy(g.rows,'root_cause').map(c=>c.name);
     return {...g,site_id:g.name,region:regionNames.map(regionCode).join(' / '),regionNames:regionNames.join(' '),district:[...new Set(g.rows.map(r=>r.district||''))].join(' '),rootCause:causes.join(' / '),breachOutcome:g.breached>0?'Yes':g.slaUnrecorded>0?'Unrecorded':'No'};
   });
+  const minimum=Number(minTickets)===3?3:0;
+  if(minimum)rows=rows.filter(row=>row.tickets>=minimum);
   const total=rows.length,needle=query.trim().toLowerCase();
   if(needle)rows=rows.filter(g=>[g.name,g.region,g.regionNames,g.district,g.rootCause,...g.rows.map(r=>r.site_name)].some(v=>String(v||'').toLowerCase().includes(needle)));
   const key=['name','region','tickets','rootCause','breached','durationMinutes'].includes(sort)?sort:'tickets';
   rows.sort((a,b)=>{const x=a[key],y=b[key];return (typeof x==='number'?x-y:String(x??'').localeCompare(String(y??'')))*(dir===1?1:-1)||a.name.localeCompare(b.name);});
-  return {title:periodTitle(report),total,rows,labels:rows.map(r=>r.name),series:[],lines:[],columns:[['COW ID','name'],['Region','region'],[report.definition.impact==='NSA'?'Tickets Counts':'Outages Counts','tickets'],['Root Cause','rootCause'],['Breaches SLA','breached']]};
+  return {title:periodTitle(report)+(minimum?' · 3+ '+(report.definition.impact==='NSA'?'tickets':'outages'):''),minTickets:minimum,total,rows,labels:rows.map(r=>r.name),series:[],lines:[],columns:[['COW ID','name'],['Region','region'],[report.definition.impact==='NSA'?'Tickets Counts':'Outages Counts','tickets'],['Root Cause','rootCause'],['Breaches SLA','breached']]};
 }
 
 export function renderCowPerformanceTable(data,{sortHeader,sort,dir}={}){
