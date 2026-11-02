@@ -41,7 +41,14 @@ export class PerformanceDatabase {
     const r=await fetch(this.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:this.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:this.session.refresh_token})});
     const data=await r.json();if(!r.ok){this.session=null;sessionStorage.removeItem(SESSION);throw new Error('Your database session expired. Please sign in again.');}this.saveSession(data);
   }
-  async logout(){try{await this.request('/auth/v1/logout',{method:'POST'});}finally{this.session=null;sessionStorage.removeItem(SESSION);}}
+  async trackSession(event='active',{keepalive=false}={}){
+    if(!['active','pause','sign_out'].includes(event))throw new Error('Invalid session event.');
+    return this.request('/rest/v1/rpc/performance_record_session_activity',{method:'POST',body:JSON.stringify({p_event:event}),keepalive,signal:AbortSignal.timeout(4000)});
+  }
+  async loginSessions({from='',to='',search='',status='all',offset=0,limit=25}={}){
+    return this.request('/rest/v1/rpc/performance_list_login_sessions',{method:'POST',body:JSON.stringify({p_from:from||null,p_to:to||null,p_search:search,p_status:status,p_offset:offset,p_limit:limit})});
+  }
+  async logout(){try{try{await this.trackSession('sign_out');}catch{}await this.request('/auth/v1/logout',{method:'POST'});}finally{this.session=null;sessionStorage.removeItem(SESSION);}}
   async request(path,options={}) {
     await this.refresh();
     const r=await fetch(this.url+path,{...options,headers:{apikey:this.key,Authorization:'Bearer '+this.session.access_token,'Content-Type':'application/json',...options.headers}});

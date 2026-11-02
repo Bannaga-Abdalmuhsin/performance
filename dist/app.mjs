@@ -1,6 +1,7 @@
 import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,slaOutcome,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261026all';
-import {PerformanceDatabase} from './database.mjs?v=20261026all';
-import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261018users';
+import {PerformanceDatabase} from './database.mjs?v=20261102sessions';
+import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261102sessions';
+import {mountLoginHistory,createSessionTracker} from './session-history.mjs?v=20261102sessions';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261026all';
 import {renderReport} from './report.mjs?v=20261101sites';
 import {createChartExport} from './charts.mjs?v=20261101sites';
@@ -25,6 +26,7 @@ for(const [id,r]of Object.entries(REPORTS))titles[id]=[r.title,({SA:'Services af
 const state={view:'overview',reportView:'overview',year:0,week:1,followLatest:true,duration_bucket:'all',period:'',region:'all',district:'all',service_impact:'Outage',scope:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',query:'',page:0,sort:'created_at',dir:-1,chart:'both',reviewRanges:{},allYears:false,siteMinTickets:0};
 let profiles={},reportDates={},refreshTimer=null,refreshBusy=false;
 let connectionError='',accountEmail='',authBusy=false;
+const sessionTracker=createSessionTracker({getDatabase:()=>db,canTrack:()=>!!member?.active});
 let data=null,profile={},db=null,member=null,source='none',recordsById=new Map(),toastTimer;
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,6000);}
 function notice(message,type=''){const el=$('#source-notice');el.innerHTML=message;el.className='source-notice '+type;el.hidden=!message;const status=$('#login-status'),show=authBusy&&!connectionError&&!$('#login-screen').hidden;status.innerHTML=show?message:'';status.className='auth-status '+type;status.hidden=!show;}
@@ -140,6 +142,7 @@ function render(){
 
   $('#content').innerHTML=REPORTS[state.view]?renderReport(activeModel(),state,data.meta):({causes:causeView,sites:sitesView,tickets:ticketView,settings:settingsView})[state.view]();
   fillIcons($('#content'));
+  if(state.view==='settings')mountLoginHistory($('#content'),db,member);
 }
 function navigate(view){if(!titles[view])return;if(!dashboardAccessible()){if(view==='settings'&&db?.session){state.view='settings';render();}return;}state.view=view;if(REPORTS[view]){state.reportView=view;state.duration_bucket='all';if(state.followLatest)selectLatestPeriod();}state.page=0;state.query='';state.sort=view==='sites'?'tickets':'created_at';state.dir=-1;$('#sidebar').classList.remove('open');fillFilters();render();history.replaceState(null,'','#'+view);}
 function showDetail(id){const r=recordsById.get(id);if(!r)return;const fields=[['Root cause category',rootCauseGroup(r.root_cause)],['Root cause details',r.root_cause],['COW',r.site_id],['Region / district',r.region+' / '+r.district],['Location',r.site_name],['Service impact',r.service_impact],['Severity / vendor',r.severity+' / '+r.vendor],['Sites Label',r.site_label],['Created',stamp(r.created_at)],['Cleared',stamp(r.cleared_at)],['Referred to ACES',stamp(r.referred_at)],['Recorded restoration',hours(r.duration_minutes)+' hrs'],['Source SLA allowance',hours(r.sla_minutes)+' hrs'],['Record key',r.source_key||r.id],['Parent TT',r.parent_tt||'Blank'],['Impact start',stamp(r.impact_start)],['Impact finish',stamp(r.impact_finish)],['Decoded / source row',r.source_row]];
@@ -157,7 +160,7 @@ async function exportDashboard(){
 function databaseNotice(){notice('');}
 function startAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(()=>checkForUpdates(),30000);refreshTimer?.unref?.();}
 async function checkForUpdates(force=false){if(refreshBusy||source!=='database'||!db?.session||document.visibilityState==='hidden')return;refreshBusy=true;try{const latest=await db.latest();if(!latest)throw new Error('No completed snapshot is visible. Verify your performance access.');if(latest.id!==data?.meta.import_id){await loadDatabase();toast('New completed Supabase snapshot loaded across all dashboards.');}else {databaseNotice();if(force)toast('All dashboards use the latest completed Supabase snapshot.');}}catch(err){notice(`${icon('alert')}<span>Live refresh paused: ${e(err.message)} Displaying the last verified snapshot.</span><button class="text-button" id="refresh-now">Retry refresh</button>`,'warn');}finally{refreshBusy=false;}}
-async function loadDatabase(){await db.getUser();notice(`<span class="spinner"></span><span>Verifying performance access…</span>`);member=await db.member();$('#account-name').textContent=db.session.user?.email||'Database account';notice(`<span class="spinner"></span><span>Loading performance records…</span>`);const dataset=await db.load(n=>notice(`<span class="spinner"></span><span>Loading performance records… ${number(n)} read</span>`));connectionError='';setData(dataset,'database');}
+async function loadDatabase(){await db.getUser();notice(`<span class="spinner"></span><span>Verifying performance access…</span>`);member=await db.member();sessionTracker.start();$('#account-name').textContent=db.session.user?.email||'Database account';notice(`<span class="spinner"></span><span>Loading performance records…</span>`);const dataset=await db.load(n=>notice(`<span class="spinner"></span><span>Loading performance records… ${number(n)} read</span>`));connectionError='';setData(dataset,'database');}
 async function connect(form){
   if(authBusy)return;const button=form.querySelector('[type="submit"]'),url=$('#project-url').value.trim(),key=$('#project-key').value.trim(),password=$('#db-password')?.value||'';
   accountEmail=$('#db-email')?.value?.trim()||db?.session?.user?.email||accountEmail;if($('#db-password'))$('#db-password').value='';button.disabled=true;connectionError='';authBusy=true;notice(`<span class="spinner"></span><span>Signing in to your performance workspace…</span>`);render();
@@ -166,6 +169,7 @@ async function connect(form){
   finally{authBusy=false;button.disabled=false;render();}
 }
 async function signOut(){
+  sessionTracker.stop();
   clearInterval(refreshTimer);refreshTimer=null;authBusy=true;accountEmail=db?.session?.user?.email||accountEmail;member=null;data=null;state.view='settings';recordsById.clear();source='none';
   for(const id of ['detail-dialog','chart-dialog']){const dialog=$('#'+id);if(dialog.open)dialog.close();}
   for(const id of ['content','detail-content','chart-dialog-content'])$('#'+id).innerHTML='';$('#chart-tooltip').hidden=true;$('#account-name').textContent='Review workspace';$('#sidebar-source').textContent='Database signed out';$('#sidebar-dot').classList.remove('live');$('#nav-count').textContent='—';$('#export-pdf').disabled=true;connectionError='';notice(`<span class="spinner"></span><span>Signing out…</span>`);render();
