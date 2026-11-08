@@ -57,7 +57,10 @@ test('parent-only later dates cannot move latest periods or extend matching comp
  assert.equal(latestReportDate(records,{},sourceMeta,'weekly-sa'),'2026-08-15');assert.equal(latestReportDate(records,{},sourceMeta,'weekly-nsa'),'2026-08-14');
  for(const id of ['mom-y','yoy']){
   const report=buildReport(records,state,{},sourceMeta,id);assert.equal(report.sourceCoverage.max_date,'2026-08-15');assert.equal(report.series[1].range.end,'2025-08-15');assert.equal(report.prev.summary.tickets,1);
-  assert.equal(yearMonthData(report,state,sourceMeta).series[0].values[8],null);assert.equal(areaData(report,state,sourceMeta).series[0].values[8],null);
+  assert.equal(yearMonthData(report,state,sourceMeta).series[0].values[8],null);
+  const trend=areaData(report,state,sourceMeta);
+  assert.deepEqual(trend.series.map(s=>s.buckets.flat().at(-1).end),['2026-08-15','2025-08-15']);
+  assert.deepEqual(trend.series.map(s=>s.values.reduce((total,value)=>total+(value??0),0)),[1,1]);
   assert.equal(reportTrend(report,{...state,period:'2026-09'},sourceMeta).at(-1).summary,null);
  }
 });

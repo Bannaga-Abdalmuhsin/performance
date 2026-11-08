@@ -3,10 +3,10 @@ import {PerformanceDatabase} from './database.mjs?v=20261102sessions';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261102sessions';
 import {mountLoginHistory,createSessionTracker} from './session-history.mjs?v=20261102sessions';
 import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261026all';
-import {renderReport} from './report.mjs?v=20261101sites';
-import {createChartExport} from './charts.mjs?v=20261101sites';
+import {renderReport} from './report.mjs?v=20261108tickettrend';
+import {createChartExport} from './charts.mjs?v=20261108tickettrend';
 import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261101sites';
-import {openDashboardExport} from './pdf-report.mjs?v=20261101sites';
+import {openDashboardExport} from './pdf-report.mjs?v=20261108tickettrend';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -181,7 +181,7 @@ document.addEventListener('click',async(ev)=>{
   try{
     if(b.id==='open-user-settings'){navigate('settings');return;}
     if(b.id==='return-to-sign-in'){state.view='overview';render();return;}
-    if(b.dataset.action==='chart-download'){const panel=b.closest('.bi-panel'),svg=panel?.querySelector('.bi-scroll > svg');if(svg){const keys=[...panel.querySelectorAll('.bi-legend>span')].map(el=>{const marker=el.querySelector('i');return {name:el.textContent.trim(),color:marker?.style.getPropertyValue('--legend-color')||marker?.style.backgroundColor||'#4f008c',line:marker?.classList.contains('line')};});download(createChartExport(svg.outerHTML,panel.querySelector('h2')?.textContent||'Performance chart',keys),'stc-COW-'+panel.dataset.chartId+'-'+state.period+'.svg','image/svg+xml;charset=utf-8');}return;}
+    if(b.dataset.action==='chart-download'){const panel=b.closest('.bi-panel'),svg=panel?.querySelector('.bi-scroll > svg');if(svg){const keys=[...panel.querySelectorAll('.bi-legend>span')].map(el=>{const marker=el.querySelector('i');return {name:el.textContent.trim(),color:marker?.style.getPropertyValue('--legend-color')||marker?.style.backgroundColor||'#4f008c',line:marker?.classList.contains('line'),dashed:marker?.classList.contains('dashed')};});download(createChartExport(svg.outerHTML,panel.querySelector('h2')?.textContent||'Performance chart',keys),'stc-COW-'+panel.dataset.chartId+'-'+state.period+'.svg','image/svg+xml;charset=utf-8');}return;}
     if(b.dataset.action==='chart-expand'){const panel=b.closest('.bi-panel'),svg=panel?.querySelector('.bi-scroll > svg');if(svg){const heading=panel.querySelector('h2')?.textContent||'Performance chart',legend=panel.querySelector('.bi-legend')?.outerHTML||'';$('#chart-dialog-content').innerHTML=`<h2>${e(heading)}</h2>${legend}<div class="bi-scroll bi-expanded-scroll">${svg.outerHTML}</div>`;$('#chart-dialog').showModal();}return;}
     if(b.dataset.view){navigate(b.dataset.view);return;}if(b.dataset.go){navigate(b.dataset.go);return;}
     if(b.classList.contains('close-dialog')){b.closest('dialog').close();return;}

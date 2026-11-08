@@ -19,9 +19,9 @@ const drill={root_cause:'cause',region:'region',district:'district',site_label:'
 
 // Mirrors the saved visual types. YoY is a new page using the same chart family.
 export const CHART_PLANS={
-  'weekly-sa':{periods:2,area:true,funnel:true,annualDuration:true,label:true,severity:true,root:'combo',district:'combo',duration:'bar',changeKpi:true},
-  'weekly-nsa':{periods:3,area:true,funnel:true,label:true,severity:true,root:'combo',district:'bar',duration:'severity-bar',changeKpi:true},
-  overview:{periods:2,area:true,funnel:true,label:true,root:'combo',district:'combo',duration:'combo',changeKpi:true},
+  'weekly-sa':{periods:2,funnel:true,annualDuration:true,label:true,severity:true,root:'combo',district:'combo',duration:'bar',changeKpi:true},
+  'weekly-nsa':{periods:3,funnel:true,label:true,severity:true,root:'combo',district:'bar',duration:'severity-bar',changeKpi:true},
+  overview:{periods:2,funnel:true,label:true,root:'combo',district:'combo',duration:'combo',changeKpi:true},
   'mom-y':{periods:3,label:true,root:'combo',district:'combo',duration:'combo'},
   'wow-y':{periods:3,label:true,severity:true,root:'combo',district:'combo',duration:'combo'},
   yoy:{periods:3,label:true,severity:true,annualTickets:true,annualDuration:true,root:'combo',district:'combo',duration:'combo'}
@@ -58,7 +58,8 @@ function segmented(values,x,y){
   values.forEach((v,i)=>{if(num(v))points.push([x(i),y(v),v,i]);else if(points.length){result.push(points);points=[];}});
   if(points.length)result.push(points);return result;
 }
-function legend(series,lines=[]){return `<div class="bi-legend">${series.map((s,i)=>`<span><i style="background:${s.color||CHART_COLORS[i]}"></i>${esc(s.name)}</span>`).join('')}${lines.map(l=>`<span><i class="line" style="--legend-color:${l.color}"></i>${esc(l.name)}</span>`).join('')}</div>`;}
+function legendItems({series,lines=[]}){return [...series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i],line:s.line,dashed:s.dashed})),...lines.map(l=>({...l,line:true}))];}
+function legend(series,lines=[]){return `<div class="bi-legend">${legendItems({series,lines}).map(s=>`<span><i ${s.line?`class="line${s.dashed?' dashed':''}" style="--legend-color:${s.color}"`:`style="background:${s.color}"`}></i>${esc(s.name)}</span>`).join('')}</div>`;}
 function tools(){return '<div class="bi-tools"><button class="bi-tool" data-action="chart-download" title="Download chart as SVG" aria-label="Download chart as SVG"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg></button><button class="bi-tool" data-action="chart-expand" title="Expand chart" aria-label="Expand chart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg></button></div>';}
 function panel({id,title,data,svg,kind='combo',className='',legendLines=true,showLegend=true,scrollHeight,fit=false}){
   const wide=!fit&&kind==='combo'&&data.labels.length>8;
@@ -140,33 +141,80 @@ export function yearMonthData(report,state,meta,metric='hours'){
   })}));
   return {labels:months.map(m=>monthLabel('2024-'+m)),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0]?.values[i],series[1]?.values[i]))}],unit:metric};
 }
-export function areaData(report,state,meta){
-  meta={...meta,...report.sourceCoverage};
-  if(report.now.range?.allYears&&report.now.range.week){
-    const available=new Set();for(const range of report.now.range.ranges)for(let t=Date.parse(range.start+'T00:00:00Z');t<=Date.parse(range.end+'T00:00:00Z');t+=DAY){const date=new Date(t).toISOString().slice(0,10);if(date>=meta.min_date&&date<=meta.max_date)available.add(new Date(t).getUTCDay());}
-    const values=Array.from({length:7},(_,day)=>available.has(day)?report.now.rows.filter(r=>new Date(r.created_date+'T00:00:00Z').getUTCDay()===day).length:null);
-    return {labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[],unit:'tickets',ranges:report.now.range.ranges};
-  }
-  const weekly=report.definition.mode.includes('week');let ranges=[];
-  const custom=report.definition.customRange,range=report.now.range,daily=weekly||custom&&range&&(Date.parse(range.end)-Date.parse(range.start))/DAY<31;
-  if(daily&&range){for(let t=Date.parse(range.start+'T00:00:00Z');t<=Date.parse(range.end+'T00:00:00Z');t+=DAY){const date=new Date(t).toISOString().slice(0,10);ranges.push({start:date,end:date,label:new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'})});}}
-  else if(custom)ranges=reviewMonths(range);
-  else ranges=Array.from({length:12},(_,i)=>{const range=monthRange(String(state.year||state.period.slice(0,4))+'-'+String(i+1).padStart(2,'0'));return {...range,label:monthLabel(range.month)};});
-  const values=ranges.map(range=>!meta.max_date||range.end<meta.min_date||range.start>meta.max_date?null:report.scope.filter(r=>r.created_date>=range.start&&r.created_date<=range.end).length);
-  return {labels:ranges.map(r=>r.label),series:[{name:'Ticket volume',color:CHART_COLORS[0],values}],lines:[],unit:'tickets',ranges};
+const trendDay=date=>Date.parse(date+'T00:00:00Z');
+const trendMonth=date=>Number(date.slice(0,4))*12+Number(date.slice(5,7));
+const trendDateFormat=new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+const trendMonthFormat=new Intl.DateTimeFormat('en-GB',{month:'short',year:'2-digit',timeZone:'UTC'});
+function trendBucketText(parts){
+  if(parts.length>1)return `across ${parts.length} selected ranges`;
+  const {start,end}=parts[0];
+  return start===end?trendDateFormat.format(trendDay(start)):trendDateFormat.formatRange(new Date(trendDay(start)),new Date(trendDay(end)));
 }
-export function areaSvg(data,{label='',id='area'}={}){
-  if(!data.labels.length)return emptySvg(label);
-  const w=760,h=290,l=57,r=24,t=30,b=47,pw=w-l-r,ph=h-t-b,scale=countScale(data.series[0].values),gap=pw/Math.max(1,data.labels.length-1),x=i=>data.labels.length===1?l+pw/2:l+gap*i,y=v=>t+ph-v/scale.max*ph;
-  let svg=svgStart(w,h,label)+`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8e45bd" stop-opacity=".3"/><stop offset="1" stop-color="#8e45bd" stop-opacity=".015"/></linearGradient></defs><text class="bi-axis-title" x="${l}" y="15">TICKETS</text>`;
-  for(let i=0;i<=4;i++){const yy=t+ph-i*ph/4;svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}" stroke-dasharray="3 5"/><text x="${l-12}" y="${yy+4}" text-anchor="end">${compact(scale.max*i/4)}</text>`;}
-  for(const points of segmented(data.series[0].values,x,y)){
-    const path=points.map(([xx,yy],i)=>(i?'L':'M')+xx+','+yy).join(' ');
-    svg+=`<path d="${path} L${points.at(-1)[0]},${t+ph} L${points[0][0]},${t+ph} Z" fill="url(#${id})"/><path d="${path}" fill="none" stroke="#6e23a0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
-    for(const [xx,yy,value,i]of points)svg+=`<g data-tip="${attr(data.labels[i]+'\n'+n(value)+' tickets')}"><title>${esc(data.labels[i])}: ${n(value)} tickets</title><circle cx="${xx}" cy="${yy}" r="4" fill="white" stroke="#6e23a0" stroke-width="2.5"/><circle cx="${xx}" cy="${yy}" r="15" fill="transparent"/></g>`;
-  }
+export function areaData(report,_state,meta){
+  const coverage={...meta,...report.sourceCoverage};
+  const periods=[report.now,...(report.prev.range?[report.prev]:[])],ranges=periods.map(period=>period.range).filter(Boolean);
+  const weekly=report.definition.mode.includes('week');
+  const longest=Math.max(0,...ranges.map(range=>(trendDay(range.end)-trendDay(range.start))/DAY+1));
+  const daily=!weekly&&longest<=31&&!report.definition.fullYear;
+  const slots=weekly?7:daily?longest:Math.max(0,...ranges.map(range=>trendMonth(range.end)-trendMonth(range.start)+1));
+  const sharedMonths=!weekly&&!daily&&ranges.length&&ranges.every(range=>range.start.slice(5,7)===ranges[0].start.slice(5,7))&&(slots<=12||ranges.length===1);
+  const axisTitle=weekly?'Day of week':daily?'Day of period':sharedMonths?'Month':'Month of period';
+  const labels=weekly?['Sun','Mon','Tue','Wed','Thu','Fri','Sat']:Array.from({length:slots},(_,i)=>{
+    if(!sharedMonths)return String(i+1);
+    const month=shiftReviewDate(ranges[0].start.slice(0,7)+'-01',i).slice(0,7);
+    return slots>12?trendMonthFormat.format(trendDay(month+'-01')):monthLabel(month);
+  });
+  const series=periods.map((period,index)=>{
+    const range=period.range,buckets=Array.from({length:slots},()=>[]);
+    const slot=date=>weekly?new Date(trendDay(date)).getUTCDay():daily?(trendDay(date)-trendDay(range.start))/DAY:trendMonth(date)-trendMonth(range.start);
+    const add=(start,end)=>{
+      const coveredStart=start<coverage.min_date?coverage.min_date:start,coveredEnd=end>coverage.max_date?coverage.max_date:end;
+      if(coveredStart<=coveredEnd)buckets[slot(start)]?.push({start:coveredStart,end:coveredEnd});
+    };
+    if(range&&period.covered&&coverage.min_date&&coverage.max_date){
+      for(const part of range.ranges||[range]){
+        if(weekly||daily){for(let t=trendDay(part.start);t<=trendDay(part.end);t+=DAY){const date=new Date(t).toISOString().slice(0,10);add(date,date);}}
+        else for(const month of reviewMonths(part))add(month.start,month.end);
+      }
+    }
+    // Zero is a covered interval with no matching tickets; an uncovered interval is a gap.
+    const values=buckets.map(parts=>parts.length?0:null);
+    for(const row of period.rows){
+      const i=slot(row.created_date);
+      if(num(values[i])&&row.created_date>=coverage.min_date&&row.created_date<=coverage.max_date)values[i]++;
+    }
+    const role=index?'Comparison':'Current';
+    return {name:`${role} · ${seriesName(period)}${period.covered?'':' (no coverage)'}`,role,color:CHART_COLORS[index],line:true,dashed:index===1,values,buckets};
+  });
+  return {labels,series,lines:[],unit:'tickets',axisTitle};
+}
+export function areaSvg(data,{label='',id='area',width=760}={}){
+  if(!data.labels.length||!data.series.some(s=>s.values.some(num)))return emptySvg(label);
+  const w=width,h=302,l=57,r=30,t=30,b=62,pw=w-l-r,ph=h-t-b,scale=countScale(data.series.flatMap(s=>s.values)),gap=pw/Math.max(1,data.labels.length-1),x=i=>data.labels.length===1?l+pw/2:l+gap*i,y=v=>t+ph-v/scale.max*ph;
+  const gradient=attr(id),base=t+ph,summary=label+': '+data.series.map(s=>s.name).join(' versus ');
+  let svg=svgStart(w,h,summary)+`<style>.bi-trend-hit:focus{outline:none}.bi-trend-hit:hover .bi-trend-guide,.bi-trend-hit:focus .bi-trend-guide{opacity:1}</style><defs><linearGradient id="${gradient}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${data.series[0].color}" stop-opacity=".22"/><stop offset="1" stop-color="${data.series[0].color}" stop-opacity=".015"/></linearGradient></defs><text class="bi-axis-title" x="${l}" y="15">TICKETS</text>`;
+  for(let i=0;i<=4;i++){const yy=base-i*ph/4;svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}" stroke-dasharray="3 5"/><text x="${l-12}" y="${yy+4}" text-anchor="end">${compact(scale.max*i/4)}</text>`;}
+  data.series.forEach((series,index)=>{
+    for(const points of segmented(series.values,x,y)){
+      const path=points.map(([xx,yy],i)=>(i?'L':'M')+xx+','+yy).join(' ');
+      if(!index&&points.length>1)svg+=`<path d="${path} L${points.at(-1)[0]},${base} L${points[0][0]},${base} Z" fill="url(#${gradient})"/>`;
+      svg+=`<path d="${path}" fill="none" stroke="${attr(series.color)}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"${series.dashed?' stroke-dasharray="7 5"':''}/>`;
+      for(const [xx,yy]of points)svg+=series.dashed?`<rect x="${xx-2.5}" y="${yy-2.5}" width="5" height="5" rx=".7" fill="white" stroke="${attr(series.color)}" stroke-width="1.7"/>`:`<circle cx="${xx}" cy="${yy}" r="3.5" fill="white" stroke="${attr(series.color)}" stroke-width="2"/>`;
+    }
+  });
   const labelStep=data.labels.length>12?Math.ceil(data.labels.length/10):1;
-  data.labels.forEach((name,i)=>{const last=data.labels.length-1,edge=name.length>7&&i===last?'end':'middle';if(i===last||i%labelStep===0&&(i===0||last-i>=labelStep))svg+=`<text x="${x(i)}" y="${h-17}" text-anchor="${edge}">${esc(name)}</text>`;});return svg+'</svg>';
+  data.labels.forEach((name,i)=>{
+    const last=data.labels.length-1,xx=x(i);
+    if(i===last||i%labelStep===0&&(i===0||last-i>=labelStep))svg+=`<text x="${xx}" y="${h-35}" text-anchor="${name.length>6&&i===last?'end':'middle'}">${esc(name)}</text>`;
+    if(!data.series.some(s=>num(s.values[i])))return;
+    const tip=[data.axisTitle==='Day of period'?`Day ${name}`:data.axisTitle==='Month of period'?`Month ${name}`:name,...data.series.map(s=>{
+      const parts=s.buckets?.[i]||[],value=s.values[i];
+      return `${s.role||s.name}${parts.length?' · '+trendBucketText(parts):''}: ${num(value)?n(value)+(value===1?' ticket':' tickets'):'Unavailable'}`;
+    })].join('\n');
+    const left=i===0?l:xx-gap/2,right=i===last?w-r:xx+gap/2;
+    svg+=`<g class="bi-trend-hit" tabindex="0" data-tip="${attr(tip)}" aria-label="${attr(tip)}"><title>${esc(tip)}</title><line class="bi-trend-guide" x1="${xx}" x2="${xx}" y1="${t}" y2="${base}" stroke="#c6add6" stroke-dasharray="3 4" opacity="0"/><rect x="${left}" y="${t-6}" width="${right-left}" height="${ph+12}" fill="transparent"/></g>`;
+  });
+  return svg+`<text class="bi-axis-title" x="${l+pw/2}" y="${h-11}" text-anchor="middle">${esc(data.axisTitle||'')}</text></svg>`;
 }
 export function regionalData(report,metric='tickets'){
   const groups=comparisonGroups(report,'region');return {labels:groups.map(g=>g.name),series:[],lines:[{name:metric==='tickets'?'Ticket change':'Duration change',color:metric==='tickets'?TEAL:AMBER,values:groups.map(g=>metric==='tickets'?g.ticketChange:g.durationChange)}],field:'region',unit:'percent'};
@@ -202,7 +250,7 @@ export function donutSvg(value,label,{rate=false}={}){
 export function createChartExport(svg,title,items=[]){
   const match=svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);if(!match)throw new Error('Chart dimensions are unavailable.');
   const w=Number(match[1]),h=Number(match[2]);let x=28,y=65,keys='';
-  for(const item of items){const width=String(item.name).length*7+34;if(x+width>w-25){x=28;y+=24;}keys+=`${item.line?`<line x1="${x}" x2="${x+16}" y1="${y-4}" y2="${y-4}" stroke="${attr(item.color)}" stroke-width="3"/>`:`<rect x="${x}" y="${y-10}" width="11" height="11" rx="2" fill="${attr(item.color)}"/>`}<text x="${x+22}" y="${y}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;fill:#8a7599">${esc(item.name)}</text>`;x+=width;}
+  for(const item of items){const width=String(item.name).length*7+34;if(x+width>w-25){x=28;y+=24;}keys+=`${item.line?`<line x1="${x}" x2="${x+16}" y1="${y-4}" y2="${y-4}" stroke="${attr(item.color)}" stroke-width="3"${item.dashed?' stroke-dasharray="5 3"':''}/>`:`<rect x="${x}" y="${y-10}" width="11" height="11" rx="2" fill="${attr(item.color)}"/>`}<text x="${x+22}" y="${y}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;fill:#8a7599">${esc(item.name)}</text>`;x+=width;}
   const top=y+23,nested=svg.replace('<svg ',`<svg x="0" y="${top}" `);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h+top}" width="${w}" height="${h+top}"><rect width="100%" height="100%" fill="white"/><text x="28" y="31" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:18px;font-weight:650;fill:#4f008c">${esc(title)}</text>${keys}${nested}</svg>`;
 }
@@ -294,10 +342,10 @@ export function dashboardSections(report,state,meta){
   if(p.annualTickets){const data=yearMonthData(report,state,meta,'tickets');annual.push({id:report.id+'-annual-tickets',title:'Monthly ticket volume by year',data,svg:comboSvg(data,{label:'Monthly ticket volume by year',width:950}),kind:'combo',fit:true});}
   if(p.annualDuration){const data=yearMonthData(report,state,meta,'hours');annual.push({id:report.id+'-annual-duration',title:'MoM duration KPI',data,svg:comboSvg(data,{label:'MoM duration KPI',stacked:true,width:950}),kind:'stacked-combo',fit:true});}
   add('annual',annual.length>1?'two':'one',annual);
-  if(p.area){const area=areaData(report,state,meta),funnel=funnelData(report);add('trend','area-row',[
-    {id:report.id+'-ticket-trend',title:'Tickets volume KPI trend',data:area,svg:areaSvg(area,{label:'Tickets volume KPI trend',id:'area-'+report.id}),kind:'area'},
-    {id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Age distribution'}),kind:'funnel'}
-  ]);}
+  const area=areaData(report,state,meta),trendTitle='Tickets volume KPI trend';
+  const trend=[{id:report.id+'-ticket-trend',title:trendTitle,data:area,svg:areaSvg(area,{label:trendTitle,id:'area-'+report.id,width:p.funnel?760:950}),kind:'area'}];
+  if(p.funnel){const funnel=funnelData(report);trend.push({id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Age distribution'}),kind:'funnel'});}
+  add('trend',p.funnel?'area-row':'one',trend);
   const priorities=[];if(p.severity)priorities.push(comparisonChart(report,'severity','Severity TTs comparison'));if(p.label)priorities.push(comparisonChart(report,'site_label','Sites Label TTs comparison'));
   add('priorities',p.severity?'two':'one',priorities);
   if(!report.definition.comparisonUnavailable)add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
@@ -306,7 +354,7 @@ export function dashboardSections(report,state,meta){
   add('performance','one',[outperformanceChart(report)]);
   return sections;
 }
-export function chartLegend(chart){return chart.showLegend===false?[]:[...chart.data.series.map((s,i)=>({name:s.name,color:s.color||CHART_COLORS[i]})),...(chart.data.lines||[]).map(l=>({...l,line:true}))];}
+export function chartLegend(chart){return chart.showLegend===false?[]:legendItems(chart.data);}
 export function exportChartParts(chart,{maxCategories=12,maxRows=7}={}){
   if(chart.kind==='table')return cowPerformanceParts(chart);
   const horizontal=['bar','severity-bar'].includes(chart.kind),combo=['combo','stacked-combo'].includes(chart.kind),limit=horizontal?maxRows:chart.data.field==='root_cause'?Math.max(ROOT_CAUSE_GROUPS.length,maxCategories):maxCategories;

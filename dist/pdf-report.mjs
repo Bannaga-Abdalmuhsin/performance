@@ -1,7 +1,7 @@
 import {cowPerformanceChart} from './site-table.mjs?v=20261101sites';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
 import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026all';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261101sites';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261108tickettrend';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -141,7 +141,7 @@ export async function createDashboardPdf(manifest,{rasterize=rasterizeSvg,assetL
       for(const line of b.titleLines){page.drawText(line,{x:x+17,y:yy,size:14,font:bold,color:purple});yy-=18;}
       if(b.legendLines.length){
         const lw=(b.width-34)/.75,lh=b.legendLines.length*24;
-        const ls=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${lw} ${lh}" width="${lw}" height="${lh}">${b.legendLines.map((line,i)=>{let xx=0;return line.map(item=>{const at=xx;xx+=(item.name.length*6.1+25)/.75;return `${item.line?`<line x1="${at}" x2="${at+15}" y1="${i*24+13}" y2="${i*24+13}" stroke="${esc(item.color)}" stroke-width="2.5"/>`:`<rect x="${at}" y="${i*24+5}" width="11" height="11" fill="${esc(item.color)}"/>`}<text x="${at+21}" y="${i*24+17}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;fill:#8d799c">${esc(item.name)}</text>`;}).join('');}).join('')}</svg>`;
+        const ls=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${lw} ${lh}" width="${lw}" height="${lh}">${b.legendLines.map((line,i)=>{let xx=0;return line.map(item=>{const at=xx;xx+=(item.name.length*6.1+25)/.75;return `${item.line?`<line x1="${at}" x2="${at+15}" y1="${i*24+13}" y2="${i*24+13}" stroke="${esc(item.color)}" stroke-width="2.5"${item.dashed?' stroke-dasharray="5 3"':''}/>`:`<rect x="${at}" y="${i*24+5}" width="11" height="11" fill="${esc(item.color)}"/>`}<text x="${at+21}" y="${i*24+17}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:13px;fill:#8d799c">${esc(item.name)}</text>`;}).join('');}).join('')}</svg>`;
         page.drawImage(await image(ls),{x:x+17,y:yy-lh*.75+11,width:b.width-34,height:lh*.75});
       }
       const picture=await image(b.chart.svg),iw=b.d.width*b.scale;page.drawImage(picture,{x:x+(b.width-iw)/2,y:y-b.top-b.svgH,width:iw,height:b.svgH});

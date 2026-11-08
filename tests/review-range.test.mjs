@@ -32,7 +32,9 @@ test('every selected day is counted once across cards, trends, comparison charts
  const chosen=selection('overview','2026-09-01','2026-10-24'),report=buildReport(records,chosen,{},meta,'overview');
  assert.deepEqual(report.now.rows.map(r=>r.id),['from','middle','to']);assert.equal(report.now.summary.tickets,3);assert.ok(Math.abs(report.now.summary.slaCompliance-200/3)<1e-10);
  assert.equal(dashboardCards(report,chosen,meta)[0].value,'3');assert.equal(cowPerformanceData(report).rows[0].tickets,3);assert.equal(cowPerformanceData(report).rows[0].breachOutcome,'Yes');
- assert.equal(areaData(report,chosen,meta).series[0].values.reduce((a,b)=>a+b,0),3);assert.deepEqual(areaData(report,chosen,meta).labels,['Sept 2026','Oct 2026']);
+ const trend=areaData(report,chosen,meta);
+ assert.deepEqual(trend.series.map(s=>s.values),[[1,2],[1,0]]);
+ assert.deepEqual(trend.series[0].buckets.flat(),[{start:'2026-09-01',end:'2026-09-30'},{start:'2026-10-01',end:'2026-10-24'}]);
  assert.equal(comparisonData(report,'root_cause').series[0].values.reduce((a,b)=>a+b,0),3);assert.equal(JSON.stringify(records),before);
 });
 test('custom yearly monthly charts retain the full selected window across calendar years',()=>{
