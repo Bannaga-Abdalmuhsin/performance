@@ -1,7 +1,7 @@
-import {AVAILABILITY_CATEGORIES} from './availability.mjs?v=20261109availability';
+import {AVAILABILITY_CATEGORIES} from './availability.mjs?v=20261109availabilityscope';
 import {cowPerformanceParts} from './site-table.mjs?v=20261101sites';
 import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261026all';
-import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261109availability';
+import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261109availabilityscope';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -400,7 +400,8 @@ function availabilitySections(report,area){
   const measured=area.series.map(s=>s.buckets.map(parts=>model.measure(parts)));
   const gauges=[],trends=[];
   for(const category of AVAILABILITY_CATEGORIES){
-    const {key,label}=category,title=label+' availability',trendTitle=title+' trend';
+    const {key,label}=category,basis=report.availabilityFiltered?' (fleet basis)':'';
+    const title=label+' availability'+basis,trendTitle=label+' availability trend'+basis;
     const current=now?.[key];
     gauges.push({id:report.id+'-availability-'+key,title,kind:'availability-gauge',className:'bi-availability-gauge',showLegend:false,data:{labels:[],series:[],category,current},svg:availabilityGauge(category,current,title)});
     const target={name:'Target '+n(category.target,2)+'%',value:category.target,color:'#806c8b',dashed:true};

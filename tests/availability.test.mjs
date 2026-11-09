@@ -12,7 +12,7 @@ const inputs={schedule:{basis:'fixed-monthly-roster',counts:{city:318,'non-city'
   approvals:{records:[{ticket_number:'PR2',approved_minutes:120},{ticket_number:'PR3',approved_minutes:30},{ticket_number:'PR4',approved_minutes:360}]}};
 const row=(id,site_id,node,day,start,finish,other={})=>({
   id,ticket_number:id,site_id,region:'Central',district:'Riyadh',vendor:'Nokia',site_label:'Normal',
-  service_impact:'Outage',source_data:{'Node Classification':node},created_date:day,
+  service_impact:'Outage',source_data:{'Node Classification':node},created_date:day,performance_closed_date:day,
   impact_start:midnight(day,start),impact_finish:midnight(day,finish),duration_minutes:(Date.parse(midnight(day,finish))-Date.parse(midnight(day,start)))/60000,...other});
 const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-9,`${actual} != ${expected}`);
 
@@ -74,7 +74,7 @@ test('unresolved classification and missing duration never produce a confirmed K
   assert.equal(withoutApprovals.measure(dates(day)),null);
 });
 
-test('all SA dashboards and PDF exports use selected periods and the fleet scope; NSA has no availability',()=>{
+test('all SA dashboards and PDF exports use selected periods and report filters; NSA has no availability',()=>{
   const rows=[row('PR10','COW002','Remote','2026-11-07','01:00','02:00'),row('PR11','COW001','Metro','2026-10-07','01:00','02:00')];
   const meta={...coverage,dashboard_from:'2025-01-01',availability:inputs};
   for(const view of Object.keys(REPORTS)){
@@ -94,7 +94,8 @@ test('all SA dashboards and PDF exports use selected periods and the fleet scope
       assert.ok(trend.svg.includes('data-reference-target="'+target+'"'));
     }
     assert.equal(report.now.summary.tickets,0);
-    assert.ok(remote.data.current.downtimeHours>0,'Availability uses the whole fleet, regardless of the ticket filter');
+    assert.equal(remote.data.current.downtimeHours,0);
+    assert.equal(remote.data.current.percent,100);
     assert.deepEqual(cityTrend.data.series.map(s=>s.buckets),areaData(report,state,meta).series.map(s=>s.buckets));
     for(const [,points] of cityTrend.svg.matchAll(/<polyline points="([^"]+)"/g)){
       const coords=points.split(' ').map(p=>p.split(',').map(Number));
@@ -103,6 +104,60 @@ test('all SA dashboards and PDF exports use selected periods and the fleet scope
     const manifest=createDashboardExport({records:rows,state,meta,selectedIds:charts.map(c=>c.id)});
     assert.deepEqual(exportChartRows(manifest).flatMap(r=>r.charts.map(c=>c.id)),charts.map(c=>c.id));
   }
+});
+
+test('only valid Closed Date values count, including the source Excel date',()=>{
+  const day='2026-11-07',rows=[
+    row('PR1','COW001','Metro',day,'01:00','03:00'),
+    row('PR2','COW002','Metro',day,'01:00','15:00',{performance_closed_date:null,cleared_at:midnight(day,'15:00')}),
+    row('PR3','COW003',null,day,'01:00','10:00',{performance_closed_date:'',duration_minutes:null}),
+    row('PR4','COW004','Remote',day,'01:00','10:00',{performance_closed_date:'0'}),
+    row('PR99','COW005','Remote',day,'01:00','04:00',{performance_closed_date:undefined,source_data:{'Node Classification':'Remote','Closed Date':46333.5}})
+  ];
+  const current=prepareAvailability(rows,inputs,coverage).measure(dates(day));
+  close(current.city.downtimeHours,2);
+  close(current.city.approvedHours,0);
+  close(current['non-city'].downtimeHours,3);
+  assert.equal(current.city.complete,true);
+  assert.equal(current['non-city'].complete,true);
+});
+
+test('region and vendor selections change both periods and the PDF, retaining the fleet hours',()=>{
+  const current='2026-11-07',previous='2026-10-31',rows=[
+    row('PR11','COW001','Metro',current,'01:00','03:00'),
+    row('PR12','COW001',null,current,'01:00','02:00',{vendor:'Ericsson'}),
+    row('PR13','COW002','Metro',current,'01:00','07:00',{region:'East'}),
+    row('PR14','COW001','Metro',previous,'01:00','05:00',{vendor:'Ericsson'}),
+    row('PR15','COW002','Metro',previous,'01:00','09:00',{region:'East'}),
+  ];
+  const meta={...coverage,dashboard_from:'2025-01-01',availability:inputs};
+  const base={view:'weekly-sa',year:2026,week:45,period:'2026-11'};
+  const full=buildReport(rows,base,{},meta),region={...base,region:'Central'},both={...region,vendor:'Ericsson'};
+  assert.equal(full.availability.measure(full.now.range).city.downtimeHours,9);
+  const report=buildReport(rows,region,{},meta),filtered=report.availability.measure(report.now.range).city;
+  assert.equal(filtered.downtimeHours,3);
+  assert.equal(filtered.scheduledHours,full.availability.measure(full.now.range).city.scheduledHours);
+  assert.equal(report.availability.measure(report.prev.range).city.downtimeHours,4);
+  const manifest=createDashboardExport({records:rows,state:both,meta});
+  const card=manifest.items.find(i=>i.id==='weekly-sa-availability-city').chart;
+  const trend=manifest.items.find(i=>i.id==='weekly-sa-availability-trend-city').chart;
+  assert.equal(card.data.current.downtimeHours,1);
+  assert.equal(card.data.current.complete,true);
+  assert.match(card.title,/fleet basis/);
+  assert.deepEqual(trend.data.series.map(s=>s.metrics.reduce((sum,m)=>sum+(m?.downtimeHours||0),0)),[1,4]);
+});
+
+test('monthly ON-AIR site hours follow the roster for each covered day',()=>{
+  const schedule={basis:'monthly-on-air-roster',from:'2025-01-01',months:{
+    '2026-10':{counts:{city:240,'non-city':172},total:412},
+    '2026-11':{counts:{city:241,'non-city':175},total:416}
+  }};
+  const model=prepareAvailability([],{...inputs,schedule},coverage);
+  const crossMonth=model.measure(dates('2026-10-31','2026-11-01'));
+  assert.equal(crossMonth.city.scheduledHours,(240+241)*24);
+  assert.equal(crossMonth['non-city'].scheduledHours,(172+175)*24);
+  assert.equal(model.measure(dates('2026-09-30','2026-10-01')),null);
+  assert.equal(model.measure(dates('2026-09-30')),null);
 });
 
 test('2024 is absent from ticket rows, all-year weeks, annual legends and export periods',()=>{

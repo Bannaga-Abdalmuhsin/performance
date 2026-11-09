@@ -66,7 +66,7 @@ export class PerformanceDatabase {
     await this.member();
     const first=await this.latest();
     if(!first||first.status!=='complete')throw new Error('No completed performance import is available yet.');
-    const page=1000,records=[];let cursor='',fields=[...FIELDS,'performance_node_classification'].join(',');
+    const page=1000,records=[];let cursor='',fields=[...FIELDS,'performance_node_classification','performance_closed_date'].join(',');
     const tickets=()=>this.request('/rest/v1/performance_tickets?select='+fields+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
     // Every row is pinned to one immutable completed snapshot. A pending or
     // failed upload cannot replace the last verified dashboard version.
@@ -74,7 +74,7 @@ export class PerformanceDatabase {
       let rows;
       try{rows=await tickets();}
       catch(error){
-        if(cursor||fields===FIELDS.join(',')||!/performance_node_classification/i.test(error.message))throw error;
+        if(cursor||fields===FIELDS.join(',')||!/(performance_node_classification|performance_closed_date)/i.test(error.message))throw error;
         // Older project schemas can still load the ticket reports.
         fields=FIELDS.join(',');rows=await tickets();
       }
@@ -82,7 +82,7 @@ export class PerformanceDatabase {
       if(!rows.length)break;const next=rows.at(-1).id;if(typeof next!=='string'||(cursor&&next<=cursor))throw new Error('Invalid database pagination cursor. No dashboard data was replaced.');cursor=next;
     }
     if(records.length!==first.record_count)throw new Error('Snapshot count mismatch. No dashboard data was replaced.');
-    const meta={...first.metadata,node_classification_loaded:fields.includes('performance_node_classification'),record_count:records.length,min_date:first.min_date,max_date:first.max_date,import_id:first.id,completed_at:first.completed_at};
+    const meta={...first.metadata,availability_fields_loaded:fields.includes('performance_closed_date'),record_count:records.length,min_date:first.min_date,max_date:first.max_date,import_id:first.id,completed_at:first.completed_at};
     if(!records.length)throw new Error('The completed import returned no visible tickets. Check database access.');
     return {meta,records};
   }

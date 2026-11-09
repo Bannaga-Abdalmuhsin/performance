@@ -1,5 +1,5 @@
 import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261026all';
-import {prepareAvailability} from './availability.mjs?v=20261109availability';
+import {prepareAvailability} from './availability.mjs?v=20261109availabilityscope';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -146,9 +146,10 @@ export function buildReport(records,state,profiles,meta,id=state.view){
   const [now,prev]=series;
   const baseDefinition=allYearsSelected(id,state)?{...REPORTS[id],allYears:true,comparisonUnavailable:!prev.range,...(state.week==='all'?{mode:'year',customRange:true,fullYear:true}:{})}:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
   const definition=meta.dashboard_from&&!prev.range?{...baseDefinition,comparisonUnavailable:true}:baseDefinition;
+  const availabilityFiltered=['region','district','vendor','severity','site_label','root_cause','site_id','duration_bucket'].some(key=>state[key]&&state[key]!=='all');
   const availability=definition.impact==='SA'&&(meta.availability||meta.dashboard_from)?
-    prepareAvailability(records,meta.availability,sourceCoverage):null;
-  return {id,definition,availability,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
+    prepareAvailability(scope,meta.availability,sourceCoverage,{classificationRecords:availabilityFiltered?records:scope}):null;
+  return {id,definition,availability,availabilityFiltered,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }

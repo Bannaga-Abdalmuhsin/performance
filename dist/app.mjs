@@ -1,12 +1,12 @@
 import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,slaOutcome,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261026all';
-import {PerformanceDatabase} from './database.mjs?v=20261109availability';
+import {PerformanceDatabase} from './database.mjs?v=20261109availabilityscope';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261102sessions';
 import {mountLoginHistory,createSessionTracker} from './session-history.mjs?v=20261102sessions';
-import {REPORTS,dashboardDataset,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261109availability';
-import {renderReport} from './report.mjs?v=20261109weeklysections';
-import {createChartExport} from './charts.mjs?v=20261109weeklysections';
+import {REPORTS,dashboardDataset,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261109availabilityscope';
+import {renderReport} from './report.mjs?v=20261109availabilityscope';
+import {createChartExport} from './charts.mjs?v=20261109availabilityscope';
 import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261101sites';
-import {openDashboardExport} from './pdf-report.mjs?v=20261109weeklysections';
+import {openDashboardExport} from './pdf-report.mjs?v=20261109availabilityscope';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -162,7 +162,7 @@ async function exportDashboard(){
 function databaseNotice(){notice('');}
 function startAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(()=>checkForUpdates(),30000);refreshTimer?.unref?.();}
 async function refreshAvailabilityInputs(){
-  if(data?.meta.node_classification_loaded===false)return;
+  if(data?.meta.availability_fields_loaded===false)return;
   const revision=await db.availabilityInputs({revisionOnly:true}).catch(()=>null);
   if(revision===null||revision===data?.meta.availability_revision)return;
   const next=await db.availabilityInputs().catch(()=>null);
@@ -187,7 +187,7 @@ async function loadDatabase(){
     db.load(n=>notice(`<span class="spinner"></span><span>Loading performance records… ${number(n)} read</span>`)),
     db.availabilityInputs().catch(()=>null)
   ]);
-  const verified=dataset.meta.node_classification_loaded!==false?availability:null;
+  const verified=dataset.meta.availability_fields_loaded!==false?availability:null;
   dataset.meta.availability=verified?.inputs??null;dataset.meta.availability_revision=verified?.revision??null;
   connectionError='';setData(dataset,'database');
 }
