@@ -20,8 +20,8 @@ const drill={root_cause:'cause',region:'region',district:'district',site_label:'
 
 // Mirrors the saved visual types. YoY is a new page using the same chart family.
 export const CHART_PLANS={
-  'weekly-sa':{periods:2,funnel:true,annualDuration:true,label:true,severity:true,root:'combo',district:'combo',duration:'bar',changeKpi:true},
-  'weekly-nsa':{periods:3,funnel:true,label:true,severity:true,root:'combo',district:'bar',duration:'severity-bar',changeKpi:true},
+  'weekly-sa':{periods:2,funnel:true,annualDuration:true,label:true,root:'combo',district:'combo',duration:'bar',changeKpi:true},
+  'weekly-nsa':{periods:3,funnel:true,severity:true,root:'combo',district:'bar',duration:'severity-bar',changeKpi:true},
   overview:{periods:2,funnel:true,label:true,root:'combo',district:'combo',duration:'combo',changeKpi:true},
   'mom-y':{periods:3,label:true,root:'combo',district:'combo',duration:'combo'},
   'wow-y':{periods:3,label:true,severity:true,root:'combo',district:'combo',duration:'combo'},
@@ -425,7 +425,7 @@ export function dashboardSections(report,state,meta){
   if(p.funnel){const funnel=funnelData(report);trend.push({id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Age distribution'}),kind:'funnel'});}
   add('trend',p.funnel?'area-row':'one',trend);
   const priorities=[];if(p.severity)priorities.push(comparisonChart(report,'severity','Severity TTs comparison'));if(p.label)priorities.push(comparisonChart(report,'site_label','Sites Label TTs comparison'));
-  add('priorities',p.severity?'two':'one',priorities);
+  add('priorities',priorities.length>1?'two':'one',priorities);
   if(!report.definition.comparisonUnavailable)add('regions','two regional-row',[regionalChart(report,'tickets'),regionalChart(report,'duration')]);
   add('root-causes','one',[comparisonChart(report,'root_cause','Root cause TTs comparison',p.root,'bi-root-chart')]);
   add('details','two detail-row',[comparisonChart(report,'district','District TTs comparison',p.district),comparisonChart(report,'duration_bucket','TT age group distribution',p.duration)]);

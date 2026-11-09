@@ -28,7 +28,9 @@ test('all six analyses and PDF selections share the grouped labels without chang
   const legacy={...selected,vendor:'Others',site_label:'Unknown'},manifest=createDashboardExport({records,state:legacy,meta});
   assert.equal(manifest.report.now.summary.tickets,id==='yoy'?3:2,id);
   assert.deepEqual(manifest.selectedFilters,['Vendor: TETRA','Sites Label: Normal']);
-  assert.deepEqual(manifest.items.find(i=>i.id===id+'-site_label').chart.data.labels,['Normal']);
+  const labelChart=manifest.items.find(i=>i.id===id+'-site_label');
+  if(id==='weekly-nsa')assert.equal(labelChart,undefined);
+  else assert.deepEqual(labelChart.chart.data.labels,['Normal']);
   assert.equal(legacy.vendor,'Others');assert.equal(legacy.site_label,'Unknown');
  }
  assert.equal(JSON.stringify(records),before);
