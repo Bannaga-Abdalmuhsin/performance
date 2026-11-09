@@ -355,18 +355,20 @@ function availabilityGauge(category,current,title){
 }
 function availabilityTrendSvg(data,title){
   const w=760,h=274,l=80,r=31,t=24,b=43,plot=w-l-r,base=h-b;
-  const values=data.series.flatMap(s=>s.values).filter(num);
-  if(!values.length)return svgStart(w,h,title)+`<rect x="45" y="35" width="670" height="200" rx="14" fill="#fcfafd"/><text x="380" y="145" text-anchor="middle" style="font-size:24px">—</text></svg>`;
-  const span=Math.max(.04,(100-Math.min(...values))*1.12);
+  const values=data.series.flatMap(s=>s.values).filter(num),[target]=data.lines;
+  const span=Math.max(.04,(100-Math.min(target.value,...values))*1.12);
   const step=span<.12?.01:span<.6?.05:span<2?.1:span<10?.5:2.5;
   const floor=Math.max(0,100-step*4*Math.ceil(span/(4*step)));
   const gap=plot/Math.max(1,data.labels.length-1),x=i=>data.labels.length===1?l+plot/2:l+gap*i,y=v=>base-(v-floor)/(100-floor)*(base-t);
-  let svg=svgStart(w,h,title+': '+data.series.map(s=>s.name).join(' versus '))+
+  let svg=svgStart(w,h,title+': '+data.series.map(s=>s.name).join(' versus ')+' · '+target.name)+
     `<style>.bi-trend-hit:focus{outline:none}.bi-trend-hit:focus .bi-trend-guide,.bi-trend-hit:hover .bi-trend-guide{opacity:1}</style>`;
   for(let i=0;i<=4;i++){
     const v=floor+(100-floor)*i/4,yy=y(v);
     svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${n(v,span<2?2:1)}%</text>`;
   }
+  const targetY=y(target.value);
+  svg+=`<line data-reference-target="${target.value}" x1="${l}" x2="${w-r}" y1="${targetY}" y2="${targetY}" stroke="${target.color}" stroke-width="1.8" stroke-dasharray="5 5"><title>${esc(target.name)}</title></line>`;
+  if(!values.length)svg+=`<text x="${l+plot/2}" y="${t+32}" text-anchor="middle" style="font-size:24px">—</text>`;
   for(const s of data.series){
     for(const points of segmented(s.values,x,y)){
       svg+=`<polyline points="${points.map(([xx,yy])=>xx+','+yy).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"${s.dashed?' stroke-dasharray="7 5"':''}/>`;
@@ -401,7 +403,8 @@ function availabilitySections(report,area){
     const {key,label}=category,title=label+' availability',trendTitle=title+' trend';
     const current=now?.[key];
     gauges.push({id:report.id+'-availability-'+key,title,kind:'availability-gauge',className:'bi-availability-gauge',showLegend:false,data:{labels:[],series:[],category,current},svg:availabilityGauge(category,current,title)});
-    const data={...area,unit:'availability',lines:[],series:area.series.map((s,index)=>{
+    const target={name:'Target '+n(category.target,2)+'%',value:category.target,color:'#806c8b',dashed:true};
+    const data={...area,unit:'availability',lines:[target],series:area.series.map((s,index)=>{
       const metrics=measured[index].map(m=>m?.[key]||null);
       return {...s,name:s.name.replace(/ \(no coverage\)$/,''),metrics,values:metrics.map(m=>m?.percent??null)};
     })};
