@@ -71,6 +71,8 @@ main.auth-screen{max-width:none;margin:0;min-height:100svh;padding:40px 24px;dis
 .bi-legend i.line.dashed{width:17px;background:repeating-linear-gradient(90deg,var(--legend-color) 0 5px,transparent 5px 8px)}.bi-legend i.line.dashed:after{display:none}
 
 /* Keep the full availability charts visible inside the two-column cards. */
-.bi-panel.bi-availability-gauge .bi-scroll>svg{min-width:0;max-width:680px;margin-inline:auto}
+.bi-panel.bi-availability-gauge .panel-title{padding-bottom:10px}
+.bi-panel.bi-availability-gauge .bi-scroll{padding:0 18px 18px}
+.bi-panel.bi-availability-gauge .bi-scroll>svg{min-width:0;max-width:none;margin-inline:auto}
 .bi-panel[data-chart-kind="availability-trend"] .bi-scroll>svg{min-width:0}
 @media(max-width:1100px){.bi-chart-row.two.availability-row{grid-template-columns:minmax(0,1fr)}}

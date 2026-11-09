@@ -85,10 +85,11 @@ test('all SA dashboards and PDF exports use selected periods and the fleet scope
     assert.equal(charts.length,view==='weekly-nsa'?0:4);
     if(!charts.length)continue;
     const [city,remote,cityTrend]=charts;
-    assert.match(city.svg,/99\.96%/);
-    assert.match(city.svg,/KPI weight · 10%/);
-    assert.match(city.svg,/318 on-air sites/);
-    assert.match(remote.svg,/254 on-air sites/);
+    for(const gauge of [city,remote]){
+      const labels=[...gauge.svg.matchAll(/<text\b[^>]*>([^<]+)<\/text>/g)].map(([,label])=>label);
+      assert.deepEqual(labels,[gauge.data.current.percent.toFixed(3)+'%']);
+    }
+    assert.deepEqual(cityTrend.data.lines,[]);
     assert.equal(report.now.summary.tickets,0);
     assert.ok(remote.data.current.downtimeHours>0,'Availability uses the whole fleet, regardless of the ticket filter');
     assert.deepEqual(cityTrend.data.series.map(s=>s.buckets),areaData(report,state,meta).series.map(s=>s.buckets));
