@@ -1,7 +1,7 @@
 import {cowPerformanceChart} from './site-table.mjs?v=20261101sites';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
-import {REPORTS,buildReport,change} from './analysis.mjs?v=20261026all';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261108tickettrend';
+import {REPORTS,buildReport,change} from './analysis.mjs?v=20261109availability';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261109availability';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];
@@ -48,7 +48,7 @@ function textSvg(lines,{width=1480,size=16,color='#816c91',padding=0,lineHeight=
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><rect width="100%" height="100%" fill="white"/>${lines.map((line,i)=>`<text x="${padding}" y="${padding+size+i*lineHeight}" style="font-family:Inter,Segoe UI,Arial,sans-serif;font-size:${size}px;fill:${color}">${esc(line)}</text>`).join('')}</svg>`;
 }
 function periodsSvg(manifest){
-  const periods=manifest.report.definition.comparisonUnavailable?[manifest.report.now]:manifest.report.series;
+  const periods=manifest.report.definition.comparisonUnavailable?[manifest.report.now]:manifest.report.series.filter(p=>p.range);
   const width=1480,height=91,gap=18,count=periods.length,cw=(width-gap*(count-1))/count;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">${periods.map((s,i)=>{
     const x=i*(cw+gap),label=i===0?'Review period':i===1?'Comparison':'Earlier comparison';

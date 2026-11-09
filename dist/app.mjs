@@ -1,12 +1,12 @@
 import {FIELDS,VENDOR_GROUPS,vendorGroup,siteLabelGroup,ROOT_CAUSE_GROUPS,rootCauseGroup,matchesTicketQuery,slaOutcome,analysisRecords,num,sum,previousMonth,percentageChange,scopeFilter,summarize,groupBy,monthlyTrend,coverageFor} from './core.mjs?v=20261026all';
-import {PerformanceDatabase} from './database.mjs?v=20261102sessions';
+import {PerformanceDatabase} from './database.mjs?v=20261109availability';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261102sessions';
 import {mountLoginHistory,createSessionTracker} from './session-history.mjs?v=20261102sessions';
-import {REPORTS,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261026all';
-import {renderReport} from './report.mjs?v=20261108tickettrend';
-import {createChartExport} from './charts.mjs?v=20261108tickettrend';
+import {REPORTS,dashboardDataset,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261109availability';
+import {renderReport} from './report.mjs?v=20261109availability';
+import {createChartExport} from './charts.mjs?v=20261109availability';
 import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261101sites';
-import {openDashboardExport} from './pdf-report.mjs?v=20261108tickettrend';
+import {openDashboardExport} from './pdf-report.mjs?v=20261109availability';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};
@@ -60,7 +60,9 @@ function fillFilters(){
 function setData(dataset,origin){
   if(!(db?.session&&member?.active)&&!(origin==='snapshot'&&config.privateSnapshot))throw new Error('Sign in with an approved performance account before opening the dashboard.');
   if(!dataset?.records?.length||!dataset.meta?.min_date||!dataset.meta?.max_date)throw new Error('The dataset has no valid dated records.');
-  const wasLatest=state.followLatest;
+  dataset=dashboardDataset(dataset);
+  if(!dataset.records.length)throw new Error('No ticket records from January 2025 onward are available.');
+  const wasLatest=state.followLatest||state.year<Number(dataset.meta.min_date.slice(0,4));
   data={...dataset,records:dataset.records.map(row=>({...row,vendor:vendorGroup(row.vendor),site_label:siteLabelGroup(row.site_label)}))};source=origin;profile=dataset.meta.profile||profile;
   reportDates=Object.fromEntries(Object.keys(REPORTS).map(id=>[id,latestReportDate(data.records,profiles,data.meta,id)]));
   if(wasLatest||!state.year)selectLatestPeriod();recordsById=new Map(analysisRecords(data.records).map(r=>[r.id,r]));
@@ -159,8 +161,36 @@ async function exportDashboard(){
 }
 function databaseNotice(){notice('');}
 function startAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=setInterval(()=>checkForUpdates(),30000);refreshTimer?.unref?.();}
-async function checkForUpdates(force=false){if(refreshBusy||source!=='database'||!db?.session||document.visibilityState==='hidden')return;refreshBusy=true;try{const latest=await db.latest();if(!latest)throw new Error('No completed snapshot is visible. Verify your performance access.');if(latest.id!==data?.meta.import_id){await loadDatabase();toast('New completed Supabase snapshot loaded across all dashboards.');}else {databaseNotice();if(force)toast('All dashboards use the latest completed Supabase snapshot.');}}catch(err){notice(`${icon('alert')}<span>Live refresh paused: ${e(err.message)} Displaying the last verified snapshot.</span><button class="text-button" id="refresh-now">Retry refresh</button>`,'warn');}finally{refreshBusy=false;}}
-async function loadDatabase(){await db.getUser();notice(`<span class="spinner"></span><span>Verifying performance access…</span>`);member=await db.member();sessionTracker.start();$('#account-name').textContent=db.session.user?.email||'Database account';notice(`<span class="spinner"></span><span>Loading performance records…</span>`);const dataset=await db.load(n=>notice(`<span class="spinner"></span><span>Loading performance records… ${number(n)} read</span>`));connectionError='';setData(dataset,'database');}
+async function refreshAvailabilityInputs(){
+  if(data?.meta.node_classification_loaded===false)return;
+  const revision=await db.availabilityInputs({revisionOnly:true}).catch(()=>null);
+  if(revision===null||revision===data?.meta.availability_revision)return;
+  const next=await db.availabilityInputs().catch(()=>null);
+  if(next&&data&&source==='database'){data.meta.availability=next.inputs;data.meta.availability_revision=next.revision;if(REPORTS[state.view])render();}
+}
+async function checkForUpdates(force=false){
+  if(refreshBusy||source!=='database'||!db?.session||document.visibilityState==='hidden')return;
+  refreshBusy=true;
+  try{
+    const latest=await db.latest();
+    if(!latest)throw new Error('No completed snapshot is visible. Verify your performance access.');
+    if(latest.id!==data?.meta.import_id){await loadDatabase();toast('New completed Supabase snapshot loaded across all dashboards.');}
+    else {await refreshAvailabilityInputs();databaseNotice();if(force)toast('All dashboards use the latest completed Supabase snapshot.');}
+  }catch(err){notice(`${icon('alert')}<span>Live refresh paused: ${e(err.message)} Displaying the last verified snapshot.</span><button class="text-button" id="refresh-now">Retry refresh</button>`,'warn');}
+  finally{refreshBusy=false;}
+}
+async function loadDatabase(){
+  await db.getUser();notice(`<span class="spinner"></span><span>Verifying performance access…</span>`);
+  member=await db.member();sessionTracker.start();$('#account-name').textContent=db.session.user?.email||'Database account';
+  notice(`<span class="spinner"></span><span>Loading performance records…</span>`);
+  const [dataset,availability]=await Promise.all([
+    db.load(n=>notice(`<span class="spinner"></span><span>Loading performance records… ${number(n)} read</span>`)),
+    db.availabilityInputs().catch(()=>null)
+  ]);
+  const verified=dataset.meta.node_classification_loaded!==false?availability:null;
+  dataset.meta.availability=verified?.inputs??null;dataset.meta.availability_revision=verified?.revision??null;
+  connectionError='';setData(dataset,'database');
+}
 async function connect(form){
   if(authBusy)return;const button=form.querySelector('[type="submit"]'),url=$('#project-url').value.trim(),key=$('#project-key').value.trim(),password=$('#db-password')?.value||'';
   accountEmail=$('#db-email')?.value?.trim()||db?.session?.user?.email||accountEmail;if($('#db-password'))$('#db-password').value='';button.disabled=true;connectionError='';authBusy=true;notice(`<span class="spinner"></span><span>Signing in to your performance workspace…</span>`);render();

@@ -57,20 +57,32 @@ export class PerformanceDatabase {
   }
   async member(){const r=await this.request('/rest/v1/performance_members?select=role,active&user_id=eq.'+encodeURIComponent(this.session.user.id));if(!r.length||!r[0].active)throw new Error('Performance access is not enabled for '+(this.session.user.email||'this account')+'. Ask the project owner to approve this email.');return r[0];}
   async latest(){return (await this.request('/rest/v1/performance_imports?select=id,status,metadata,record_count,min_date,max_date,completed_at,source_name&status=eq.complete&order=completed_at.desc,id.desc&limit=1'))[0]||null;}
+  async availabilityInputs({revisionOnly=false}={}){
+    const rows=await this.request('/rest/v1/performance_availability_inputs?select=kind,updated_at'+(revisionOnly?'':',payload')+'&order=kind.asc',{signal:AbortSignal.timeout(8000)});
+    const revision=rows.map(r=>r.kind+':'+r.updated_at).join('|');
+    return revisionOnly?revision:{revision,inputs:Object.fromEntries(rows.map(r=>[r.kind,r.payload]))};
+  }
   async load(progress=()=>{}) {
     await this.member();
     const first=await this.latest();
     if(!first||first.status!=='complete')throw new Error('No completed performance import is available yet.');
-    const page=1000,records=[];let cursor='';
+    const page=1000,records=[];let cursor='',fields=[...FIELDS,'performance_node_classification'].join(',');
+    const tickets=()=>this.request('/rest/v1/performance_tickets?select='+fields+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
     // Every row is pinned to one immutable completed snapshot. A pending or
     // failed upload cannot replace the last verified dashboard version.
     while(true){
-      const rows=await this.request('/rest/v1/performance_tickets?select='+FIELDS.join(',')+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
+      let rows;
+      try{rows=await tickets();}
+      catch(error){
+        if(cursor||fields===FIELDS.join(',')||!/performance_node_classification/i.test(error.message))throw error;
+        // Older project schemas can still load the ticket reports.
+        fields=FIELDS.join(',');rows=await tickets();
+      }
       records.push(...rows);progress(records.length);
       if(!rows.length)break;const next=rows.at(-1).id;if(typeof next!=='string'||(cursor&&next<=cursor))throw new Error('Invalid database pagination cursor. No dashboard data was replaced.');cursor=next;
     }
     if(records.length!==first.record_count)throw new Error('Snapshot count mismatch. No dashboard data was replaced.');
-    const meta={...first.metadata,record_count:records.length,min_date:first.min_date,max_date:first.max_date,import_id:first.id,completed_at:first.completed_at};
+    const meta={...first.metadata,node_classification_loaded:fields.includes('performance_node_classification'),record_count:records.length,min_date:first.min_date,max_date:first.max_date,import_id:first.id,completed_at:first.completed_at};
     if(!records.length)throw new Error('The completed import returned no visible tickets. Check database access.');
     return {meta,records};
   }

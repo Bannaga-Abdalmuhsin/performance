@@ -1,7 +1,13 @@
 import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261026all';
+import {prepareAvailability} from './availability.mjs?v=20261109availability';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
+export const DASHBOARD_FROM='2025-01-01';
+export function dashboardDataset(dataset){
+  const records=dataset.records.filter(row=>row.created_date>=DASHBOARD_FROM);
+  return {...dataset,records,meta:{...dataset.meta,dashboard_from:DASHBOARD_FROM,min_date:dataset.meta.min_date<DASHBOARD_FROM?DASHBOARD_FROM:dataset.meta.min_date,record_count:records.length}};
+}
 export const REPORTS={
   'weekly-sa':{title:'Weekly Overview (SA)',mode:'week',impact:'SA',comparison:'previous week'},
   'weekly-nsa':{title:'Weekly Overview (NSA)',mode:'week',impact:'NSA',comparison:'previous week'},
@@ -95,7 +101,7 @@ function customReviewPeriods(id,state){
   const step=mode==='month'?monthCount:12,preserveMonthEnd=mode==='month'&&range.to===monthRange(range.to.slice(0,7)).end;
   return [0,1,2].map(i=>{const start=shiftReviewDate(range.from,-i*step),end=shiftReviewDate(range.to,-i*step,{monthEnd:preserveMonthEnd});return {start,end,year:Number(end.slice(0,4)),label:reviewRangeLabel(start,end),custom:true};});
 }
-export function reportPeriods(id,state,meta){
+function rawReportPeriods(id,state,meta){
   const mode=REPORTS[id]?.mode||'month',year=Number(state.year||state.period.slice(0,4)),week=Number(state.week||1);
   if(allYearsSelected(id,state))return allYearPeriods(id,state,meta);
   const custom=customReviewPeriods(id,state);if(custom)return custom;
@@ -110,20 +116,39 @@ export function reportPeriods(id,state,meta){
   }
   return [0,-1,-2].map(n=>monthRange(previousMonth(state.period,n)));
 }
+export function reportPeriods(id,state,meta){
+  const from=meta.dashboard_from;
+  const periods=rawReportPeriods(id,state,from&&meta.min_date<from?{...meta,min_date:from}:meta);
+  const afterCutoff=range=>{
+    if(!range||range.end<from)return null;
+    if(range.ranges){
+      const ranges=range.ranges.map(afterCutoff).filter(Boolean);
+      if(!ranges.length)return null;
+      const start=ranges.map(r=>r.start).sort()[0],end=ranges.map(r=>r.end).sort().at(-1);
+      return {...range,start,end,ranges,firstYear:Number(start.slice(0,4)),lastYear:Number(end.slice(0,4))};
+    }
+    return range.start<from?{...range,start:from,label:reviewRangeLabel(from,range.end)}:range;
+  };
+  return from?periods.map(afterCutoff):periods;
+}
 export function buildReport(records,state,profiles,meta,id=state.view){
+  if(meta.dashboard_from){records=records.filter(row=>row.created_date>=meta.dashboard_from);if(meta.min_date<meta.dashboard_from)meta={...meta,min_date:meta.dashboard_from};}
   const sourceCoverage=impactCoverage(records,id,meta),scope=reportScope(records,state,profiles,id),ranges=reportPeriods(id,state,{...meta,max_date:sourceCoverage.max_date||meta.max_date});
   // Month/year views compare like-for-like days when the uploaded month is partial.
-  if(REPORTS[id]?.mode==='month-year'&&!ranges[0].custom&&sourceCoverage.max_date&&ranges[0].start<=sourceCoverage.max_date&&ranges[0].end>sourceCoverage.max_date){
+  if(REPORTS[id]?.mode==='month-year'&&ranges[0]&&!ranges[0].custom&&sourceCoverage.max_date&&ranges[0].start<=sourceCoverage.max_date&&ranges[0].end>sourceCoverage.max_date){
     const day=Number(sourceCoverage.max_date.slice(8));
-    ranges.forEach(r=>r.end=r.end.slice(0,8)+String(Math.min(day,Number(r.end.slice(8)))).padStart(2,'0'));
+    ranges.forEach(r=>{if(r)r.end=r.end.slice(0,8)+String(Math.min(day,Number(r.end.slice(8)))).padStart(2,'0');});
   }
   const series=ranges.map(range=>{
     const coverage=covered(range,sourceCoverage),rows=coverage.covered?inRange(scope,range):[];
     return {range,...coverage,rows,summary:coverage.covered?summarize(rows):null};
   });
   const [now,prev]=series;
-  const definition=allYearsSelected(id,state)?{...REPORTS[id],allYears:true,comparisonUnavailable:!prev.range,...(state.week==='all'?{mode:'year',customRange:true,fullYear:true}:{})}:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
-  return {id,definition,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
+  const baseDefinition=allYearsSelected(id,state)?{...REPORTS[id],allYears:true,comparisonUnavailable:!prev.range,...(state.week==='all'?{mode:'year',customRange:true,fullYear:true}:{})}:allWeeksSelected(id,state)?{...REPORTS[id],mode:'year',comparison:'previous year',fullYear:true}:now.range?.custom?{...REPORTS[id],customRange:true,...(REPORTS[id].mode==='month'?{comparison:'previous matching month range'}:{})}:REPORTS[id];
+  const definition=meta.dashboard_from&&!prev.range?{...baseDefinition,comparisonUnavailable:true}:baseDefinition;
+  const availability=definition.impact==='SA'&&(meta.availability||meta.dashboard_from)?
+    prepareAvailability(records,meta.availability,sourceCoverage):null;
+  return {id,definition,availability,profile:reportProfile(profiles,id),sourceCoverage,scope,series,now,prev,
     ticketChange:prev.summary?change(now.summary?.tickets,prev.summary.tickets):null,
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }
@@ -139,7 +164,7 @@ export function reportTrend(report,state,meta){
   meta={...meta,...report.sourceCoverage};
   const weekly=['week','week-year'].includes(report.definition.mode),year=Number(state.year||state.period.slice(0,4));
   const ranges=Array.from({length:12},(_,i)=>weekly?shiftWeek(year,Number(state.week),i-11):monthRange(previousMonth(state.period,i-11)));
-  return ranges.map(range=>{const coverage=covered(range,meta);return {range,...coverage,summary:coverage.covered?summarize(inRange(report.scope,range)):null};});
+  return ranges.filter(range=>!meta.dashboard_from||range.end>=meta.dashboard_from).map(range=>{const coverage=covered(range,meta);return {range,...coverage,summary:coverage.covered?summarize(inRange(report.scope,range)):null};});
 }
 export function dailyTrend(report){
   if(!report.now.range)return [];

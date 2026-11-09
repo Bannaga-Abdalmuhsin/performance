@@ -1,6 +1,7 @@
+import {AVAILABILITY_CATEGORIES} from './availability.mjs?v=20261109availability';
 import {cowPerformanceParts} from './site-table.mjs?v=20261101sites';
 import {num,summarize,ROOT_CAUSE_GROUPS} from './core.mjs?v=20261026all';
-import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261026all';
+import {comparisonGroups,change,durationBucket,monthRange,shiftReviewDate,DURATION_BUCKETS} from './analysis.mjs?v=20261109availability';
 
 export const CHART_COLORS=['#4f008c','#ff375e','#b5a0c9'];
 const TEAL='#00a39b',AMBER='#d99a25',GRID='#eeeaf3',INK='#34233f',MUTED='#92849c';
@@ -73,7 +74,7 @@ export function comparisonData(report,field){
   const lines=[{name:'Ticket change',color:TEAL,values:groups.map(g=>g.ticketChange)}];
   if(report.id!=='weekly-nsa'&&field!=='duration_bucket')lines.push({name:'Duration change',color:AMBER,values:groups.map(g=>g.durationChange)});
   if(report.id==='overview'&&field==='duration_bucket')lines.push({name:'Duration change',color:AMBER,values:groups.map(g=>g.durationChange)});
-  return {labels:groups.map(g=>g.name),series:report.series.slice(0,periods).map((s,i)=>({name:seriesName(s),color:CHART_COLORS[i],values:groups.map(g=>g.series[i]?.tickets??null)})),lines:report.definition.comparisonUnavailable?[]:lines,field,unit:'tickets'};
+  return {labels:groups.map(g=>g.name),series:report.series.slice(0,periods).filter(s=>s.range).map((s,i)=>({name:seriesName(s),color:CHART_COLORS[i],values:groups.map(g=>g.series[i]?.tickets??null)})),lines:report.definition.comparisonUnavailable?[]:lines,field,unit:'tickets'};
 }
 export function comboSvg(data,{stacked=false,label='',width,axisScale,changeScale,showValues=data.labels.length<=8}={}){
   if(!data.labels.length)return emptySvg(label);
@@ -124,17 +125,17 @@ function reviewMonths(range){
 export function yearMonthData(report,state,meta,metric='hours'){
   meta={...meta,...report.sourceCoverage};
   if(report.definition.customRange&&!report.definition.allYears){
-    const months=reviewMonths(report.now.range),series=report.series.map((period,i)=>({name:seriesName(period),color:CHART_COLORS[i],values:months.map(month=>{
+    const months=reviewMonths(report.now.range),series=report.series.filter(period=>period.range||!meta.dashboard_from).map((period,i)=>({name:seriesName(period),color:CHART_COLORS[i],values:months.map(month=>{
       const key=shiftReviewDate(month.month+'-01',-12*i).slice(0,7),range=monthRange(key);
       if(!period.covered||range.end<meta.min_date||range.start>meta.max_date)return null;
       const summary=summarize(period.rows.filter(row=>row.created_date.slice(0,7)===key));return metric==='hours'?summary.durationMinutes/60:summary.tickets;
     })}));
     return {labels:months.map(m=>m.label),series,lines:[{name:metric==='hours'?'Duration change':'Ticket change',color:metric==='hours'?AMBER:TEAL,values:months.map((_,i)=>change(series[0]?.values[i],series[1]?.values[i]))}],unit:metric};
   }
-  const years=report.definition.allYears?[...(report.now.range?.years||[])].reverse():[0,1,2].map(n=>Number(state.year||state.period.slice(0,4))-n),months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+  const years=(report.definition.allYears?[...(report.now.range?.years||[])].reverse():[0,1,2].map(n=>Number(state.year||state.period.slice(0,4))-n)).filter(year=>!meta.dashboard_from||year>=Number(meta.dashboard_from.slice(0,4))),months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
   const buckets=new Map();for(const r of report.scope){const key=r.created_date.slice(0,7);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(r);}
   const series=years.map((year,index)=>({name:String(year),color:CHART_COLORS[index%CHART_COLORS.length],values:months.map(m=>{
-    const range=monthRange(year+'-'+m),clip=report.id==='yoy'?report.series[index].range:null;
+    const range=monthRange(year+'-'+m),clip=report.id==='yoy'?report.series[index]?.range:null;
     if(!meta.max_date||range.end<meta.min_date||range.start>meta.max_date||clip&&range.start>clip.end)return null;
     const rows=(buckets.get(year+'-'+m)||[]).filter(r=>!clip||r.created_date<=clip.end),s=summarize(rows);
     return metric==='hours'?s.durationMinutes/60:s.tickets;
@@ -306,7 +307,7 @@ function comparisonChart(report,field,title,kind='combo',className=''){
 }
 function regionalChart(report,metric){const data=regionalData(report,metric),title=metric==='tickets'?'Ticket rate change by region':'Duration change by region';return {id:report.id+'-region-'+metric,title,data,svg:regionalSvg(data,{label:title}),kind:'line',className:'bi-region',showLegend:false};}
 export function slaPerformanceData(report){
-  const periods=(report.definition.comparisonUnavailable?[report.now]:[...report.series]).reverse();
+  const periods=(report.definition.comparisonUnavailable?[report.now]:report.series.filter(period=>period.range)).reverse();
   return {labels:periods.map(seriesName),series:[
     {name:'Within SLA',color:TEAL,values:periods.map(p=>p.summary?.slaWithin??null)},
     {name:'Exceeded SLA',color:'#ff375e',values:periods.map(p=>p.summary?.breached??null)}
@@ -335,14 +336,103 @@ function outperformanceChart(report){
   return {id:report.id+'-outperformance-sla',title,data,svg:outperformanceSvg(data,{label:title}),kind:'performance',showLegend:false,fit:true};
 }
 
+const availabilityPct=value=>num(value)?n(value,3)+'%':'—';
+function availabilityGauge(category,current,prior,ready,title){
+  const w=680,h=242,cx=158,cy=165,r=110;
+  const valid=num(current?.percent),value=current?.percent,priorValue=prior?.percent;
+  const floor=Math.min(category.key==='city'?99.80:90,valid?Math.max(0,Math.floor((value-(category.key==='city'?.05:2))*100)/100):100),fraction=v=>Math.max(0,Math.min(1,(v-floor)/(100-floor)));
+  const point=(f,radius=r)=>[cx-radius*Math.cos(Math.PI*f),cy-radius*Math.sin(Math.PI*f)];
+  const arc=f=>`M${point(0).join(',')} A${r},${r} 0 0 1 ${point(f).join(',')}`;
+  const threshold=fraction(category.target),[x1,y1]=point(threshold,r-10),[x2,y2]=point(threshold,r+11);
+  const status=!valid?(ready?'Period unavailable':'Availability data unavailable'):!current.complete?'Recorded only · incomplete data':current.meetsTarget?'Target met':'Below target';
+  const tone=!valid?MUTED:!current.complete?'#956500':current.meetsTarget?TEAL:CHART_COLORS[1];
+  const delta=valid&&num(priorValue)?value-priorValue:null;
+  const tip=valid?`${title}: ${availabilityPct(value)}\n${n(current.scheduledHours,1)} scheduled site-hours\n${n(current.recordedHours,1)} recorded outage hours\n${n(current.approvedHours,1)} approved hours credited as uptime\n${n(current.downtimeHours,1)} chargeable outage hours${current.uncertain?'\nIncomplete outage duration or classification in this period':''}`:status;
+  const siteText=current?.sites?`${n(current.sites)} on-air sites · Fleet-wide SA`:'Fleet-wide SA';
+  return svgStart(w,h,`${title}: ${availabilityPct(value)}. ${status}. Target ${n(category.target,2)} percent. Weight ${category.weight} percent.`)+
+    `<g tabindex="0" data-tip="${attr(tip)}" aria-label="${attr(tip)}"><title>${esc(tip)}</title>
+    <path d="${arc(1)}" fill="none" stroke="#eee7f2" stroke-width="15" stroke-linecap="round"/>
+    ${valid&&fraction(value)>0?`<path d="${arc(fraction(value))}" fill="none" stroke="${tone}" stroke-width="15" stroke-linecap="round"/>`:''}
+    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4f008c" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="${cx}" y="137" text-anchor="middle" style="font-size:40px;font-weight:750;fill:${INK}">${availabilityPct(value)}</text>
+    <text x="${cx-r}" y="190" text-anchor="middle" style="font-size:13px">${n(floor,floor%1?2:0)}%</text>
+    <text x="${cx+r}" y="190" text-anchor="middle" style="font-size:13px">100%</text>
+    <text x="${cx}" y="221" text-anchor="middle" style="font-size:14px">${esc(siteText)}</text></g>
+    <line x1="315" x2="315" y1="41" y2="204" stroke="${GRID}"/>
+    <text x="343" y="58" class="bi-axis-title">${category.classification.toUpperCase()} · AVAILABILITY TARGET</text>
+    <text x="343" y="92" style="font-size:26px;font-weight:750;fill:#4f008c">≥ ${n(category.target,2)}%</text>
+    <text x="343" y="118" style="font-size:15px;font-weight:650;fill:${tone}">${esc(status)}</text>
+    <text x="343" y="145" style="font-size:15px">KPI weight · ${category.weight}%</text>
+    <text x="343" y="180" style="font-size:15px;fill:${INK}">Comparison · ${availabilityPct(priorValue)}${num(priorValue)&&!prior.complete?' (recorded only)':''}</text>
+    ${num(delta)?`<text x="343" y="205" style="font-size:15px;fill:${INK}">${delta>0?'+':''}${n(delta,3)} pp vs comparison${!current.complete||!prior.complete?' (estimate)':''}</text>`:''}
+    </svg>`;
+}
+function availabilityTrendSvg(data,category,title){
+  const w=760,h=306,l=79,r=31,t=32,b=67,plot=w-l-r,base=h-b;
+  const values=data.series.flatMap(s=>s.values).filter(num);
+  if(!values.length)return svgStart(w,h,title)+`<rect x="45" y="50" width="670" height="180" rx="14" fill="#fcfafd"/><text x="380" y="142" text-anchor="middle">${data.ready?'No covered period for availability':'Availability data unavailable'}</text></svg>`;
+  const minimum=Math.min(category.target,...values),step=category.key==='city'?.01:1;
+  const floor=Math.max(0,Math.floor((minimum-(100-minimum)*.12)/step)*step);
+  const gap=plot/Math.max(1,data.labels.length-1),x=i=>data.labels.length===1?l+plot/2:l+gap*i,y=v=>base-(v-floor)/(100-floor)*(base-t);
+  const hasUncertain=data.series.some(s=>s.metrics.some(m=>m&&!m.complete));
+  let svg=svgStart(w,h,title+': '+data.series.map(s=>s.name).join(' versus '))+
+    `<style>.bi-trend-hit:focus{outline:none}.bi-trend-hit:focus .bi-trend-guide,.bi-trend-hit:hover .bi-trend-guide{opacity:1}</style><text x="${l}" y="17" class="bi-axis-title">AVAILABILITY % · FLEET-WIDE SA</text>`;
+  for(let i=0;i<=4;i++){
+    const v=floor+(100-floor)*i/4,yy=y(v);
+    svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}" stroke-dasharray="3 5"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${n(v,category.key==='city'?3:1)}</text>`;
+  }
+  svg+=`<line x1="${l}" x2="${w-r}" y1="${y(category.target)}" y2="${y(category.target)}" stroke="#8b769c" stroke-dasharray="4 4" stroke-width="1.5"/>`;
+  for(const s of data.series){
+    for(const points of segmented(s.values,x,y)){
+      svg+=`<polyline points="${points.map(([xx,yy])=>xx+','+yy).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round"${s.dashed?' stroke-dasharray="7 5"':''}/>`;
+    }
+    s.values.forEach((v,i)=>{
+      if(!num(v))return;
+      const xx=x(i),yy=y(v);
+      svg+=s.metrics[i].complete?`<circle cx="${xx}" cy="${yy}" r="3" fill="white" stroke="${s.color}" stroke-width="1.8"/>`:`<path d="M${xx},${yy-4} L${xx+4},${yy} L${xx},${yy+4} L${xx-4},${yy} Z" fill="#fff4d4" stroke="#956500" stroke-width="1.5"/>`;
+    });
+  }
+  const labelStep=Math.max(1,Math.ceil(data.labels.length/10));
+  data.labels.forEach((name,i)=>{
+    const last=data.labels.length-1,xx=x(i);
+    if(i===last||i%labelStep===0&&last-i>=labelStep)svg+=`<text x="${xx}" y="${h-44}" text-anchor="middle">${esc(name)}</text>`;
+    if(!data.series.some(s=>num(s.values[i])))return;
+    const tip=[name,...data.series.map(s=>{
+      const dates=s.buckets[i],m=s.metrics[i];
+      return `${s.role}${dates.length?' · '+trendBucketText(dates):''}: ${availabilityPct(m?.percent)}${m&&!m.complete?' (recorded only)':''}`;
+    })].join('\n');
+    const left=i===0?l:xx-gap/2,right=i===last?w-r:xx+gap/2;
+    svg+=`<g class="bi-trend-hit" tabindex="0" data-tip="${attr(tip)}" aria-label="${attr(tip)}"><title>${esc(tip)}</title><line class="bi-trend-guide" x1="${xx}" x2="${xx}" y1="${t}" y2="${base}" stroke="#c6add6" stroke-dasharray="3 4" opacity="0"/><rect x="${left}" y="${t-5}" width="${right-left}" height="${base-t+10}" fill="transparent"/></g>`;
+  });
+  return svg+`<text x="${l+plot/2}" y="${h-25}" text-anchor="middle" class="bi-axis-title">${esc(data.axisTitle)}</text>${hasUncertain?`<text x="${l+plot/2}" y="${h-7}" text-anchor="middle" style="font-size:12px;fill:#956500">Amber diamond · incomplete outage duration or classification</text>`:''}</svg>`;
+}
+function availabilitySections(report,area){
+  const model=report.availability;
+  if(!model)return [];
+  const now=model.measure(report.now.range),prev=model.measure(report.prev.range);
+  const measured=area.series.map(s=>s.buckets.map(parts=>model.measure(parts)));
+  const gauges=[],trends=[];
+  for(const category of AVAILABILITY_CATEGORIES){
+    const {key,label,target}=category,title=label+' availability',trendTitle=title+' trend';
+    const current=now?.[key],prior=prev?.[key];
+    gauges.push({id:report.id+'-availability-'+key,title,kind:'availability-gauge',className:'bi-availability-gauge',showLegend:false,data:{labels:[],series:[],category,current,prior},svg:availabilityGauge(category,current,prior,model.ready,title)});
+    const data={...area,ready:model.ready,unit:'availability',lines:[{name:'Target '+n(target,2)+'%',color:'#8b769c',dashed:true}],series:area.series.map((s,index)=>{
+      const metrics=measured[index].map(m=>m?.[key]||null);
+      return {...s,metrics,values:metrics.map(m=>m?.percent??null)};
+    })};
+    trends.push({id:report.id+'-availability-trend-'+key,title:trendTitle,kind:'availability-trend',data,svg:availabilityTrendSvg(data,category,trendTitle)});
+  }
+  return [{id:'availability-gauges',layout:'two availability-row',charts:gauges},{id:'availability-trends',layout:'two availability-row',charts:trends}];
+}
+
 export function dashboardSections(report,state,meta){
-  const p=CHART_PLANS[report.id],sections=[];
+  const p=CHART_PLANS[report.id],area=areaData(report,state,meta),sections=availabilitySections(report,area);
   const add=(id,layout,charts)=>{if(charts.length)sections.push({id,layout,charts});};
   const annual=[];
   if(p.annualTickets){const data=yearMonthData(report,state,meta,'tickets');annual.push({id:report.id+'-annual-tickets',title:'Monthly ticket volume by year',data,svg:comboSvg(data,{label:'Monthly ticket volume by year',width:950}),kind:'combo',fit:true});}
   if(p.annualDuration){const data=yearMonthData(report,state,meta,'hours');annual.push({id:report.id+'-annual-duration',title:'MoM duration KPI',data,svg:comboSvg(data,{label:'MoM duration KPI',stacked:true,width:950}),kind:'stacked-combo',fit:true});}
   add('annual',annual.length>1?'two':'one',annual);
-  const area=areaData(report,state,meta),trendTitle='Tickets volume KPI trend';
+  const trendTitle='Tickets volume KPI trend';
   const trend=[{id:report.id+'-ticket-trend',title:trendTitle,data:area,svg:areaSvg(area,{label:trendTitle,id:'area-'+report.id,width:p.funnel?760:950}),kind:'area'}];
   if(p.funnel){const funnel=funnelData(report);trend.push({id:report.id+'-age-funnel',title:'Age distribution',data:funnel,svg:funnelSvg(funnel,{label:'Age distribution'}),kind:'funnel'});}
   add('trend',p.funnel?'area-row':'one',trend);
