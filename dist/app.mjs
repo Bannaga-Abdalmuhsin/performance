@@ -3,10 +3,10 @@ import {PerformanceDatabase} from './database.mjs?v=20261109availabilityscope';
 import {renderUserSettings,saveUserSettings} from './account.mjs?v=20261102sessions';
 import {mountLoginHistory,createSessionTracker} from './session-history.mjs?v=20261102sessions';
 import {REPORTS,dashboardDataset,weekNumber,weeksInYear,weekRange,reportScope,buildReport,latestReportDate,allWeeksSelected,allYearsSelected,validReviewDates} from './analysis.mjs?v=20261109availabilityscope';
-import {renderReport} from './report.mjs?v=20261109availabilityscope';
-import {createChartExport} from './charts.mjs?v=20261109availabilityscope';
+import {renderReport} from './report.mjs?v=20261110availability2dp';
+import {createChartExport} from './charts.mjs?v=20261110availability2dp';
 import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=20261101sites';
-import {openDashboardExport} from './pdf-report.mjs?v=20261109availabilityscope';
+import {openDashboardExport} from './pdf-report.mjs?v=20261110availability2dp';
 
 const $=(s)=>document.querySelector(s);
 const config=window.PERFORMANCE_CONFIG||{};

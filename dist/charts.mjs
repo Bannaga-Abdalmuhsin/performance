@@ -336,7 +336,7 @@ function outperformanceChart(report){
   return {id:report.id+'-outperformance-sla',title,data,svg:outperformanceSvg(data,{label:title}),kind:'performance',showLegend:false,fit:true};
 }
 
-const availabilityPct=value=>num(value)?n(value,3)+'%':'—';
+const availabilityPct=value=>num(value)?n(value,2)+'%':'—';
 const availabilityReading=metric=>num(metric?.percent)&&!metric.complete?'≈ '+availabilityPct(metric.percent):availabilityPct(metric?.percent);
 function availabilityGauge(category,current,title){
   const w=540,h=136,cx=462,cy=68,r=37;
@@ -364,7 +364,7 @@ function availabilityTrendSvg(data,title){
     `<style>.bi-trend-hit:focus{outline:none}.bi-trend-hit:focus .bi-trend-guide,.bi-trend-hit:hover .bi-trend-guide{opacity:1}</style>`;
   for(let i=0;i<=4;i++){
     const v=floor+(100-floor)*i/4,yy=y(v);
-    svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${n(v,span<2?2:1)}%</text>`;
+    svg+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${GRID}"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${availabilityPct(v)}</text>`;
   }
   const targetY=y(target.value);
   svg+=`<line data-reference-target="${target.value}" x1="${l}" x2="${w-r}" y1="${targetY}" y2="${targetY}" stroke="${target.color}" stroke-width="1.8" stroke-dasharray="5 5"><title>${esc(target.name)}</title></line>`;
@@ -404,7 +404,7 @@ function availabilitySections(report,area){
     const title=label+' availability'+basis,trendTitle=label+' availability trend'+basis;
     const current=now?.[key];
     gauges.push({id:report.id+'-availability-'+key,title,kind:'availability-gauge',className:'bi-availability-gauge',showLegend:false,data:{labels:[],series:[],category,current},svg:availabilityGauge(category,current,title)});
-    const target={name:'Target '+n(category.target,2)+'%',value:category.target,color:'#806c8b',dashed:true};
+    const target={name:'Target '+availabilityPct(category.target),value:category.target,color:'#806c8b',dashed:true};
     const data={...area,unit:'availability',lines:[target],series:area.series.map((s,index)=>{
       const metrics=measured[index].map(m=>m?.[key]||null);
       return {...s,name:s.name.replace(/ \(no coverage\)$/,''),metrics,values:metrics.map(m=>m?.percent??null)};

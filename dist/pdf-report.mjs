@@ -1,7 +1,7 @@
 import {cowPerformanceChart} from './site-table.mjs?v=20261101sites';
 import {summarize,matchesTicketQuery,vendorGroup,siteLabelGroup} from './core.mjs?v=20261026all';
 import {REPORTS,buildReport,change} from './analysis.mjs?v=20261109availabilityscope';
-import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261109availabilityscope';
+import {dashboardCards,dashboardSections,cardSvg,chartLegend,exportChartParts} from './charts.mjs?v=20261110availability2dp';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const filterFields=[['region','Region'],['district','District'],['vendor','Vendor'],['severity','Severity'],['site_label','Sites Label'],['root_cause','Root cause'],['site_id','COW'],['duration_bucket','Restoration band']];

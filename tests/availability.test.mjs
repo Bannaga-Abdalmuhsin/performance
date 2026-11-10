@@ -87,7 +87,7 @@ test('all SA dashboards and PDF exports use selected periods and report filters;
     const [city,remote,cityTrend,remoteTrend]=charts;
     for(const gauge of [city,remote]){
       const labels=[...gauge.svg.matchAll(/<text\b[^>]*>([^<]+)<\/text>/g)].map(([,label])=>label);
-      assert.deepEqual(labels,[gauge.data.current.percent.toFixed(3)+'%']);
+      assert.deepEqual(labels,[gauge.data.current.percent.toFixed(2)+'%']);
     }
     for(const [trend,target,name] of [[cityTrend,99.96,'Target 99.96%'],[remoteTrend,95,'Target 95.00%']]){
       assert.deepEqual(trend.data.lines.map(line=>[line.value,line.name]),[[target,name]]);
