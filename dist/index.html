@@ -5,8 +5,8 @@
   <meta name="description" content="Monthly performance analysis for stc COW passive infrastructure operations.">
   <meta name="theme-color" content="#4f008c"><meta name="robots" content="noindex,nofollow">
   <title>stc COW · Performance review</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261112menutoggle">
-  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261112menutoggle"></script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css?v=20261112sidebarcontrol">
+  <script src="config.js?v=20261018login"></script><script type="module" src="app.mjs?v=20261112sidebarcontrol"></script>
 </head>
 <body>
 <main id="login-screen" class="auth-screen" aria-labelledby="login-title">
@@ -28,7 +28,10 @@
 <a href="#main" class="skip">Skip to performance analysis</a>
 <aside class="sidebar" id="sidebar">
   <a class="brand" href="#overview" aria-label="stc COW performance home"><img class="stc-logo" src="assets/stc-logo.png" width="1552" height="752" alt="stc"><span class="brand-divider"></span><span>COW<br><b>OPERATIONS</b></span></a>
-  <div class="nav-label">WORKSPACE</div>
+  <div class="sidebar-nav-heading">
+    <div class="nav-label">WORKSPACE</div>
+    <button type="button" class="menu-hide" id="menu-hide" aria-controls="sidebar" aria-expanded="true"><span data-icon="chevron" aria-hidden="true"></span>Hide menu</button>
+  </div>
   <nav aria-label="Main navigation">
     <button class="nav-item" data-view="weekly-sa"><span data-icon="activity"></span>Weekly Overview (SA)</button>
     <button class="nav-item" data-view="weekly-nsa"><span data-icon="activity"></span>Weekly Overview (NSA)</button>
@@ -48,7 +51,7 @@
   </div>
 </aside>
 <div class="app-shell">
-  <header class="topbar"><div class="breadcrumbs"><button type="button" class="icon-button menu-toggle" id="menu-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Hide menu" title="Hide menu"><span data-icon="menu" aria-hidden="true"></span><span class="menu-toggle-label" id="menu-toggle-label">Hide menu</span></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">COW PERFORMANCE</span><button class="account" id="account-button" title="User settings"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
+  <header class="topbar"><div class="breadcrumbs"><button type="button" class="icon-button menu-toggle" id="menu-toggle" aria-controls="sidebar" aria-expanded="false" aria-label="Show menu" title="Show menu" hidden><span data-icon="menu" aria-hidden="true"></span><span class="menu-toggle-label">Show menu</span></button><span>stc COW</span><span class="crumb-slash">/</span><b>Performance</b></div><div class="topbar-right"><span class="small-tag">COW PERFORMANCE</span><button class="account" id="account-button" title="User settings"><span data-icon="user"></span><span id="account-name">Review workspace</span><span data-icon="chevron"></span></button></div></header>
   <main id="main" tabindex="-1">
     <div class="page-heading"><div><div class="eyebrow">OPERATIONAL EXCELLENCE</div><h1 id="page-title">Monthly performance</h1><p id="page-subtitle">COW passive infrastructure performance, in focus.</p></div><div class="heading-actions"><button class="button primary" id="export-pdf"><span data-icon="file"></span>Export PDF</button></div></div>
     <div class="source-notice" id="source-notice" role="status" hidden><span class="spinner"></span>Reading performance data…</div>

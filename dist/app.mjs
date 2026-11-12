@@ -16,28 +16,25 @@ function syncMenu(){
   const expanded=mobile?sidebar.classList.contains('open'):desktopMenuOpen;
   sidebar.classList.toggle('is-collapsed',!mobile&&!expanded);
   sidebar.inert=!expanded;
-  const label=expanded?'Hide menu':'Show menu';
   toggle.setAttribute('aria-expanded',String(expanded));
-  toggle.setAttribute('aria-label',label);
-  toggle.title=label;
-  $('#menu-toggle-label').textContent=label;
+  toggle.hidden=expanded;
 }
-function toggleMenu(){
-  if(menuViewport?.matches)$('#sidebar').classList.toggle('open');
-  else desktopMenuOpen=!desktopMenuOpen;
+function setMenuOpen(open,moveFocus=false){
+  if(menuViewport?.matches)$('#sidebar').classList.toggle('open',open);
+  else desktopMenuOpen=open;
   syncMenu();
+  if(moveFocus)$(open?'#menu-hide':'#menu-toggle').focus?.({preventScroll:true});
 }
 function closeMobileMenu(){
   const sidebar=$('#sidebar');
-  if(!sidebar.classList.contains('open'))return;
-  const restoreFocus=sidebar.contains?.(document.activeElement);
-  sidebar.classList.remove('open');
-  syncMenu();
-  if(restoreFocus)$('#menu-toggle').focus?.({preventScroll:true});
+  if(sidebar.classList.contains('open'))setMenuOpen(false,sidebar.contains?.(document.activeElement));
 }
 menuViewport?.addEventListener?.('change',()=>{
-  $('#sidebar').classList.remove('open');
+  const sidebar=$('#sidebar'),toggle=$('#menu-toggle'),focused=document.activeElement;
+  sidebar.classList.remove('open');
   syncMenu();
+  if(sidebar.inert&&sidebar.contains?.(focused))toggle.focus?.({preventScroll:true});
+  else if(toggle.hidden&&focused===toggle)$('#menu-hide').focus?.({preventScroll:true});
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape')closeMobileMenu();
@@ -264,7 +261,8 @@ document.addEventListener('click',async(ev)=>{
     if(b.dataset.action==='clear-drill'){state.site_id='all';state.root_cause='all';state.duration_bucket='all';fillFilters();render();return;}
     if(b.id==='export-pdf'||b.dataset.action==='export-pdf'){await exportDashboard();return;}
     if(b.id==='more-filters'){const el=$('#extra-filters');el.hidden=!el.hidden;b.setAttribute('aria-expanded',String(!el.hidden));return;}
-    if(b.id==='menu-toggle'){toggleMenu();return;}
+    if(b.id==='menu-toggle'){setMenuOpen(true,true);return;}
+    if(b.id==='menu-hide'){setMenuOpen(false,true);return;}
     if(b.id==='account-button'){navigate('settings');return;}
     if(b.id==='reset-filters'){Object.assign(state,{region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',scope:'all',service_impact:'Outage',duration_bucket:'all',siteMinTickets:0,page:0});fillFilters();render();return;}
     if(b.id==='logout-db'){await signOut();return;}
