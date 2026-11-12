@@ -9,6 +9,39 @@ import {cowPerformanceData,renderCowPerformanceTable} from './site-table.mjs?v=2
 import {openDashboardExport} from './pdf-report.mjs?v=20261110availability2dp';
 
 const $=(s)=>document.querySelector(s);
+const menuViewport=window.matchMedia?.('(max-width: 720px)');
+let desktopMenuOpen=true;
+function syncMenu(){
+  const sidebar=$('#sidebar'),toggle=$('#menu-toggle'),mobile=menuViewport?.matches===true;
+  const expanded=mobile?sidebar.classList.contains('open'):desktopMenuOpen;
+  sidebar.classList.toggle('is-collapsed',!mobile&&!expanded);
+  sidebar.inert=!expanded;
+  const label=expanded?'Hide menu':'Show menu';
+  toggle.setAttribute('aria-expanded',String(expanded));
+  toggle.setAttribute('aria-label',label);
+  toggle.title=label;
+  $('#menu-toggle-label').textContent=label;
+}
+function toggleMenu(){
+  if(menuViewport?.matches)$('#sidebar').classList.toggle('open');
+  else desktopMenuOpen=!desktopMenuOpen;
+  syncMenu();
+}
+function closeMobileMenu(){
+  const sidebar=$('#sidebar');
+  if(!sidebar.classList.contains('open'))return;
+  const restoreFocus=sidebar.contains?.(document.activeElement);
+  sidebar.classList.remove('open');
+  syncMenu();
+  if(restoreFocus)$('#menu-toggle').focus?.({preventScroll:true});
+}
+menuViewport?.addEventListener?.('change',()=>{
+  $('#sidebar').classList.remove('open');
+  syncMenu();
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape')closeMobileMenu();
+});
 const config=window.PERFORMANCE_CONFIG||{};
 const icons={
   activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',layout:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',layers:'<path d="m12 3 10 5-10 5L2 8zM2 12l10 5 10-5M2 16l10 5 10-5"/>',tower:'<path d="m8 21 4-17 4 17M6 21h12M9 16h6M10 11h4M7 4a7 7 0 0 0 0 8M17 4a7 7 0 0 1 0 8"/>',ticket:'<path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4zM15 5v2m0 3v2m0 3v4"/>',note:'<path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h6"/>',settings:'<path d="m10 3-.7 2.3-2 .9-2.2-.7-2 3.4 1.6 1.7v2.5L3 14.8l2 3.4 2.3-.6 2 1  .7 2.4h4l.7-2.4 2-1 2.3.6 2-3.4-1.7-1.7v-2.5L21 8.9l-2-3.4-2.3.7-2-.9L14 3z"/><circle cx="12" cy="12" r="3"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',chevron:'<path d="m6 9 6 6 6-6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/>',file:'<path d="M14 3H5v18h14V8zM14 3v5h5M8 13h8M8 17h5"/>',filter:'<path d="M3 5h18M6 12h12M10 19h4"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',check:'<path d="m5 12 4 4L19 6"/>',up:'<path d="m6 15 6-6 6 6"/>',down:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/>',sort:'<path d="m8 9 4-4 4 4m-8 6 4 4 4-4"/>',database:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/>',arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>',repeat:'<path d="M4 8h14l-3-3m5 11H6l3 3M18 8a7 7 0 0 1 2 5M6 16a7 7 0 0 1-2-5"/>',alert:'<path d="m12 3 10 18H2zM12 9v5m0 3v1"/>',lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/>',upload:'<path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/>'
@@ -146,7 +179,7 @@ function render(){
   fillIcons($('#content'));
   if(state.view==='settings')mountLoginHistory($('#content'),db,member);
 }
-function navigate(view){if(!titles[view])return;if(!dashboardAccessible()){if(view==='settings'&&db?.session){state.view='settings';render();}return;}state.view=view;if(REPORTS[view]){state.reportView=view;state.duration_bucket='all';if(state.followLatest)selectLatestPeriod();}state.page=0;state.query='';state.sort=view==='sites'?'tickets':'created_at';state.dir=-1;$('#sidebar').classList.remove('open');fillFilters();render();history.replaceState(null,'','#'+view);}
+function navigate(view){if(!titles[view])return;if(!dashboardAccessible()){if(view==='settings'&&db?.session){state.view='settings';render();}return;}state.view=view;if(REPORTS[view]){state.reportView=view;state.duration_bucket='all';if(state.followLatest)selectLatestPeriod();}state.page=0;state.query='';state.sort=view==='sites'?'tickets':'created_at';state.dir=-1;closeMobileMenu();fillFilters();render();history.replaceState(null,'','#'+view);}
 function showDetail(id){const r=recordsById.get(id);if(!r)return;const fields=[['Root cause category',rootCauseGroup(r.root_cause)],['Root cause details',r.root_cause],['COW',r.site_id],['Region / district',r.region+' / '+r.district],['Location',r.site_name],['Service impact',r.service_impact],['Severity / vendor',r.severity+' / '+r.vendor],['Sites Label',r.site_label],['Created',stamp(r.created_at)],['Cleared',stamp(r.cleared_at)],['Referred to ACES',stamp(r.referred_at)],['Recorded restoration',hours(r.duration_minutes)+' hrs'],['Source SLA allowance',hours(r.sla_minutes)+' hrs'],['Record key',r.source_key||r.id],['Parent TT',r.parent_tt||'Blank'],['Impact start',stamp(r.impact_start)],['Impact finish',stamp(r.impact_finish)],['Decoded / source row',r.source_row]];
   $('#detail-content').innerHTML=`<div class="detail-heading"><div><h2>${e(r.ticket_number)}</h2><span class="muted" style="font-size:11px">${e(r.site_id)} · ${e(rootCauseGroup(r.root_cause))}</span></div><span class="impact ${r.service_impact==='No impact'?'no':''}">${e(r.service_impact)}</span></div><dl class="detail-grid">${fields.map(([k,v])=>`<div><dt>${k}</dt><dd>${e(v??'—')}</dd></div>`).join('')}</dl><div class="detail-block"><h3>Repair details</h3><p>${e(r.repair_details||'No repair details recorded.')}</p></div><div class="detail-block"><h3>SLA outcome</h3><p>${slaOutcome(r)==='exceeded'?'Exceeded SLA':slaOutcome(r)==='within'?'Within SLA':'No Exceeded TIME outcome recorded'}${r.exclusion_reason?' · '+e(r.exclusion_reason):''}</p></div>${r.quality_flags?.length?`<div class="detail-block warn"><h3>Source data checks</h3><p>${r.quality_flags.map(e).join('<br>')}</p></div>`:''}`;$('#detail-dialog').showModal();
 }
@@ -231,7 +264,7 @@ document.addEventListener('click',async(ev)=>{
     if(b.dataset.action==='clear-drill'){state.site_id='all';state.root_cause='all';state.duration_bucket='all';fillFilters();render();return;}
     if(b.id==='export-pdf'||b.dataset.action==='export-pdf'){await exportDashboard();return;}
     if(b.id==='more-filters'){const el=$('#extra-filters');el.hidden=!el.hidden;b.setAttribute('aria-expanded',String(!el.hidden));return;}
-    if(b.id==='menu-toggle'){$('#sidebar').classList.toggle('open');return;}
+    if(b.id==='menu-toggle'){toggleMenu();return;}
     if(b.id==='account-button'){navigate('settings');return;}
     if(b.id==='reset-filters'){Object.assign(state,{region:'all',district:'all',vendor:'all',severity:'all',site_label:'all',root_cause:'all',site_id:'all',scope:'all',service_impact:'Outage',duration_bucket:'all',siteMinTickets:0,page:0});fillFilters();render();return;}
     if(b.id==='logout-db'){await signOut();return;}
@@ -263,7 +296,7 @@ document.addEventListener('pointerout',ev=>{if(!ev.relatedTarget?.closest?.('[da
 document.addEventListener('focusout',()=>$('#chart-tooltip').hidden=true);
 document.addEventListener('click',()=>$('#chart-tooltip').hidden=true);
 async function startup(){
-  fillIcons();$('#export-pdf').disabled=true;
+  fillIcons();syncMenu();$('#export-pdf').disabled=true;
   if(titles[location.hash.slice(1)]){state.view=location.hash.slice(1);if(REPORTS[state.view])state.reportView=state.view;}
   const {key,url}=configuredConnection();
   if(key){try{db=new PerformanceDatabase(url,key);if(db.session){authBusy=true;notice(`<span class="spinner"></span><span>Restoring your performance session…</span>`);render();await loadDatabase();history.replaceState(null,'','#'+state.view);return;}}catch(err){connectionError=err.message;notice(`${icon('alert')}<span>${e(err.message)}</span>`,'warn');toast(err.message);}finally{authBusy=false;render();}}
