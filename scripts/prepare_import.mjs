@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
-import {normalizeRecords,FIELDS,DEDUPLICATION_POLICY,exportCSV} from '../dist/core.mjs';
+import {normalizeRecords,FIELDS,DEDUPLICATION_POLICY,exportCSV,rootCauseDetails} from '../dist/core.mjs';
 const [inputFile,outputDirectory]=process.argv.slice(2);
 if(!inputFile||!outputDirectory)throw new Error('Usage: node scripts/prepare_import.mjs input.json /private/output');
 const bytes=await fs.readFile(inputFile),doc=JSON.parse((inputFile.endsWith('.gz')?zlib.gunzipSync(bytes):bytes).toString('utf8')),result=normalizeRecords(doc.records);
@@ -19,7 +19,7 @@ await fs.mkdir(outputDirectory,{recursive:true});
 await fs.writeFile(path.join(outputDirectory,'performance-data.json.gz'),zlib.gzipSync(JSON.stringify({meta,records}),{level:9}));
 // Raw source columns stay in Supabase, rather than being sent to every chart.
 const baselineMeta={...meta};delete baselineMeta.quarantined_rows;
-await fs.writeFile(path.join(outputDirectory,'private-snapshot.json.gz'),zlib.gzipSync(JSON.stringify({meta:baselineMeta,records:records.map(r=>Object.fromEntries(FIELDS.map(k=>[k,r[k]])))}),{level:9}));
+await fs.writeFile(path.join(outputDirectory,'private-snapshot.json.gz'),zlib.gzipSync(JSON.stringify({meta:baselineMeta,records:records.map(r=>({...Object.fromEntries(FIELDS.map(k=>[k,r[k]])),root_cause_details:rootCauseDetails(r)||null}))}),{level:9}));
 await fs.writeFile(path.join(outputDirectory,'metadata.json'),JSON.stringify(meta,null,2));
 await fs.writeFile(path.join(outputDirectory,'performance-tickets.csv'),exportCSV(records));
 await fs.writeFile(path.join(outputDirectory,'controls.json'),JSON.stringify(controls,null,2));

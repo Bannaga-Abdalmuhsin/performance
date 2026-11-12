@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ROOT_CAUSE_GROUPS,rootCauseGroup,scopeFilter,groupBy,summarize,matchesTicketQuery} from '../dist/core.mjs';
+import {ROOT_CAUSE_GROUPS,rootCauseGroup,ticketRootCauseGroup,normalizeRecords,scopeFilter,groupBy,summarize,matchesTicketQuery} from '../dist/core.mjs';
 import {REPORTS,buildReport,comparisonGroups} from '../dist/analysis.mjs';
 import {createDashboardExport,exportChartRows,selectExportItems} from '../dist/pdf-report.mjs';
 
@@ -35,9 +35,27 @@ test('grouping and category filters preserve every ticket, restoration duration 
  assert.deepEqual(scopeFilter(source,{root_cause:'Generator'}).map(r=>r.id),['a','b','c']);assert.deepEqual(scopeFilter(source,{root_cause:'Others'}).map(r=>r.id),['e']);assert.equal(scopeFilter(source,{root_cause:'not a category'}).length,0);assert.deepEqual(source,before);
  assert.ok(matchesTicketQuery(source[0],'Generator'));assert.ok(matchesTicketQuery(source[0],'Fuel Pump Defective'));assert.ok(matchesTicketQuery(source[4],'Others'));
 });
+test('column AP overrides a broad or conflicting cause and is the only evidence for PMR',()=>{
+ const source=[
+  row('a','Generator Issue',undefined,{root_cause_details:'Power - PMR'}),
+  row('b','Rectifier Issue',undefined,{source_data:{'Root Cause Details':'PMR related'}}),
+  row('c','PMR',undefined,{root_cause_details:'Fiber Cable'}),
+  row('d','PMR'),
+  row('e','PMR',undefined,{root_cause_details:'Not PMR'}),
+  row('f','Fire System - Alarm Cable Fault',undefined,{root_cause_details:'Cables Issue'}),
+  row('g','Generator Issue',undefined,{root_cause_details:'SCECO - Breaker'}),
+ ];
+ assert.deepEqual(source.map(ticketRootCauseGroup),['PMR','PMR','Telecom Cables','Others','Others','Alarm Cable Issue','Circuit Breaker']);
+ assert.deepEqual(scopeFilter(source,{root_cause:'PMR'}).map(r=>r.id),['a','b']);
+ assert.equal(groupBy(source,'root_cause').find(group=>group.name==='PMR').tickets,2);
+ assert.ok(matchesTicketQuery(source[2],'Fiber Cable'));
+ const [imported]=normalizeRecords([{'Ticket Number':'PR123','Create Date':'2026-08-31','Root Cause':'Generator Issue','Root Cause Details':'PMR'}]).records;
+ assert.equal(imported.root_cause,'Generator Issue');
+ assert.equal(ticketRootCauseGroup(imported),'PMR');
+});
 test('all six analyses and PDF chart categories reconcile to the filtered period summaries',()=>{
  const sources=['Generator Issue','G1 - Engine Major Problem','Rectifier Issue','SCECO - Commercial Power','Door','Fire System - Alarm Cable Fault','ATS1 - Mechanical Problem','A/C #1 - Thermostat - Faulty','3rd Party Fault-Telecom','MDB1 -MCB Tripped','PMR related','MW-LOS issue','Fiber Cable','MDB1 -Problem','Auto-restored'];
- const records=['2026-08-31','2026-08-24','2026-07-31','2025-08-31','2024-08-31'].flatMap((date,j)=>sources.flatMap((cause,i)=>[row(`${j}-${i}-sa`,cause,date,{duration_minutes:i*30}),row(`${j}-${i}-nsa`,cause,date,{service_impact:'No impact',duration_minutes:i*30})]));
+ const records=['2026-08-31','2026-08-24','2026-07-31','2025-08-31','2024-08-31'].flatMap((date,j)=>sources.flatMap((cause,i)=>[row(`${j}-${i}-sa`,cause,date,{root_cause_details:cause,duration_minutes:i*30}),row(`${j}-${i}-nsa`,cause,date,{root_cause_details:cause,service_impact:'No impact',duration_minutes:i*30})]));
  const state={period:'2026-08',year:2026,week:36,scope:'all'},meta={min_date:'2024-01-01',max_date:'2026-08-31'};
  for(const id of Object.keys(REPORTS)){
   const report=buildReport(records,{...state,view:id},{},meta,id),groups=comparisonGroups(report,'root_cause');assert.equal(groups.length,14,id);

@@ -1,4 +1,4 @@
-import {FIELDS,IMPORT_FIELDS} from './core.mjs?v=20261026all';
+import {FIELDS,IMPORT_FIELDS} from './core.mjs?v=20261112aprootcause';
 const SESSION='cow-performance-session';
 export function validatePublicKey(key) {
   if(key.startsWith('sb_secret_'))throw new Error('Use the publishable key. Secret keys cannot be used in this page.');
@@ -66,17 +66,19 @@ export class PerformanceDatabase {
     await this.member();
     const first=await this.latest();
     if(!first||first.status!=='complete')throw new Error('No completed performance import is available yet.');
-    const page=1000,records=[];let cursor='',fields=[...FIELDS,'performance_node_classification','performance_closed_date'].join(',');
-    const tickets=()=>this.request('/rest/v1/performance_tickets?select='+fields+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
+    // Fetch only column AP from the preserved source fields.
+    const baseFields=[...FIELDS,'root_cause_details:source_data->>"Root Cause Details"'].join(',');
+    const page=1000,records=[];let cursor='',fields=baseFields+',performance_node_classification,performance_closed_date';
+    const tickets=()=>this.request('/rest/v1/performance_tickets?select='+encodeURIComponent(fields)+'&import_id=eq.'+first.id+'&order=id.asc&limit='+page+(cursor?'&id=gt.'+encodeURIComponent(cursor):''));
     // Every row is pinned to one immutable completed snapshot. A pending or
     // failed upload cannot replace the last verified dashboard version.
     while(true){
       let rows;
       try{rows=await tickets();}
       catch(error){
-        if(cursor||fields===FIELDS.join(',')||!/(performance_node_classification|performance_closed_date)/i.test(error.message))throw error;
+        if(cursor||fields===baseFields||!/(performance_node_classification|performance_closed_date)/i.test(error.message))throw error;
         // Older project schemas can still load the ticket reports.
-        fields=FIELDS.join(',');rows=await tickets();
+        fields=baseFields;rows=await tickets();
       }
       records.push(...rows);progress(records.length);
       if(!rows.length)break;const next=rows.at(-1).id;if(typeof next!=='string'||(cursor&&next<=cursor))throw new Error('Invalid database pagination cursor. No dashboard data was replaced.');cursor=next;

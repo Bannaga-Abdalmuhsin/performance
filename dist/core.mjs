@@ -39,11 +39,19 @@ const causeKey=value=>String(value??'').normalize('NFKC').toLowerCase().replace(
 const causeNames=new Map(ROOT_CAUSE_GROUPS.map(name=>[causeKey(name),name]));
 // Classification is derived for analysis. Never replace a ticket's source detail.
 // Explicit breaker faults take precedence over their equipment family.
-export function rootCauseGroup(value){
-  const key=causeKey(value),canonical=causeNames.get(key);if(canonical)return canonical;
+export function rootCauseDetails(row){
+  const raw=row?.root_cause_details??row?.source_data?.['Root Cause Details']??row?.['Root Cause Details'];
+  const value=typeof raw==='string'?raw.trim():'';
+  return cellError.test(value)?'':value;
+}
+const pmrCause=/\b(?:pmr|prevent(?:ive|ative) maintenance)\b/;
+const negatedPmr=/\b(?:non|not|no|unrelated to|not (?:related to|due to|caused by)) (?:the )?(?:pmr|prevent(?:ive|ative) maintenance)\b|\b(?:pmr|prevent(?:ive|ative) maintenance) (?:is )?(?:unrelated|ruled out|not (?:related|involved))\b/;
+function classifyRootCause(value,allowPmr){
+  const key=causeKey(value),canonical=causeNames.get(key);
+  if(canonical&&(canonical!=='PMR'||allowPmr))return canonical;
+  if(allowPmr&&pmrCause.test(key)&&!negatedPmr.test(key))return 'PMR';
   if(/\b(?:breakers?|mcb|mccb|acb|cb)\b/.test(key))return 'Circuit Breaker';
   if(/\b(?:3rd|third)\s+party\b/.test(key))return '3rd Party Fault';
-  if(/\bpmr\b/.test(key))return 'PMR';
   if(/\bself\s*cleared\b|\bauto\s*restor(?:ed|e)\b/.test(key))return 'Self Cleared';
   if(/\balarm\b.*\b(?:cables?|wiring)\b|\b(?:cables?|wiring)\b.*\balarm\b/.test(key))return 'Alarm Cable Issue';
   if(/\bats\d*\b|\bautomatic transfer switch\b/.test(key))return 'ATS Issue';
@@ -56,9 +64,15 @@ export function rootCauseGroup(value){
   if(/\blink\b|\b(?:mw|microwave|los|nlos|rsl|fading|interference|transmission|misalignment|xpic|modem|idu|odu|mmu|sfp|ber)\b|\bre alignment\b/.test(key))return 'LINK';
   return 'Others';
 }
+export function rootCauseGroup(value){return classifyRootCause(value,true);}
+export function ticketRootCauseGroup(row){
+  // Column AP takes priority when it identifies a category. PMR requires AP evidence.
+  const detailsGroup=classifyRootCause(rootCauseDetails(row),true);
+  return detailsGroup==='Others'?classifyRootCause(row?.root_cause,false):detailsGroup;
+}
 export function matchesTicketQuery(row,query){
   const q=String(query??'').trim().toLowerCase();
-  return !q||[row.ticket_number,row.site_id,row.site_name,row.root_cause,rootCauseGroup(row.root_cause),row.repair_details].some(v=>String(v||'').toLowerCase().includes(q));
+  return !q||[row.ticket_number,row.site_id,row.site_name,row.root_cause,rootCauseDetails(row),ticketRootCauseGroup(row),row.repair_details].some(v=>String(v||'').toLowerCase().includes(q));
 }
 export const num = (v) => typeof v === 'number' && Number.isFinite(v);
 export const sum = (xs) => xs.reduce((a,b)=>a+(num(b)?b:0),0);
@@ -70,7 +84,7 @@ export function scopeFilter(records, filters={}, profile={}) {
     if(!isAnalysisRecord(r))return false;
     for(const field of ['region','district','vendor','severity','service_impact','site_label','root_cause','site_id']) {
       if(filters[field] && filters[field]!=='all'){
-        const value=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field];
+        const value=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?ticketRootCauseGroup(r):r[field];
         const selected=field==='vendor'?vendorGroup(filters[field]):field==='site_label'?siteLabelGroup(filters[field]):filters[field];
         if(value!==selected)return false;
       }
@@ -109,7 +123,7 @@ export function summarize(records) {
 }
 export function groupBy(records, field) {
   const groups=new Map();
-  for(const r of analysisRecords(records)) { const key=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
+  for(const r of analysisRecords(records)) { const key=field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?ticketRootCauseGroup(r):r[field]||'Unknown'; if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r); }
   return [...groups].map(([name,rows])=>({name,...summarize(rows),rows})).sort((a,b)=>b.tickets-a.tickets||a.name.localeCompare(b.name));
 }
 export function monthlyTrend(records, period, meta, count=12) {
@@ -148,7 +162,7 @@ export function parseCSV(text) {
   });
 }
 export function normalizeRecords(input) {
-  const aliases={'Ticket Number':'ticket_number','SiteID':'site_id','SiteName':'site_name','Region':'region','District':'district','City':'city','Vendor':'vendor','Severity':'severity','Service Impacted':'service_impact','Site Label':'site_label','Create Date':'created_at','Cleared Date':'cleared_at','First Referred to ACES':'referred_at','Service Impact Start':'impact_start','Service Impact Finish':'impact_finish','Parent TT':'parent_tt','Root Cause Details':'root_cause','RepairDetails':'repair_details','Cleared Group':'cleared_group','Exclusions':'exclusion_reason','Exceeded TIME':'exceeded_time'};
+  const aliases={'Ticket Number':'ticket_number','SiteID':'site_id','SiteName':'site_name','Region':'region','District':'district','City':'city','Vendor':'vendor','Severity':'severity','Service Impacted':'service_impact','Site Label':'site_label','Create Date':'created_at','Cleared Date':'cleared_at','First Referred to ACES':'referred_at','Service Impact Start':'impact_start','Service Impact Finish':'impact_finish','Parent TT':'parent_tt','Root Cause':'root_cause','Root Cause Details':'root_cause','RepairDetails':'repair_details','Cleared Group':'cleared_group','Exclusions':'exclusion_reason','Exceeded TIME':'exceeded_time'};
   const number=(x)=>x===''||x===null||x===undefined?null:Number.isFinite(Number(x))?Number(x):null;
   const bool=(x)=>[true,'true','yes','Yes','YES'].includes(x)?true:[false,'false','no','No','NO'].includes(x)?false:null;
   const clean=(x)=>x===null||x===undefined||cellError.test(String(x))?null:String(x).trim()||null;

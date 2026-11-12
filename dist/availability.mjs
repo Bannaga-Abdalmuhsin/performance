@@ -1,4 +1,4 @@
-import {isAnalysisRecord} from './core.mjs?v=20261026all';
+import {isAnalysisRecord} from './core.mjs?v=20261112aprootcause';
 
 const DAY=86400000, DAY_MINUTES=24*60, RIYADH_OFFSET=3*3600000;
 export const AVAILABILITY_CATEGORIES=[

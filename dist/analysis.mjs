@@ -1,5 +1,5 @@
-import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,rootCauseGroup,analysisRecords} from './core.mjs?v=20261026all';
-import {prepareAvailability} from './availability.mjs?v=20261109availabilityscope';
+import {num, sum, summarize, scopeFilter, previousMonth, vendorGroup,siteLabelGroup,ticketRootCauseGroup,analysisRecords} from './core.mjs?v=20261112aprootcause';
+import {prepareAvailability} from './availability.mjs?v=20261112aprootcause';
 const DAY=86400000;
 const iso=d=>new Date(d).toISOString().slice(0,10);
 const utc=s=>Date.parse(s+'T00:00:00Z');
@@ -154,7 +154,7 @@ export function buildReport(records,state,profiles,meta,id=state.view){
     durationChange:prev.summary?change(now.summary?.durationMinutes,prev.summary.durationMinutes,'duration'):null};
 }
 export function comparisonGroups(report,field){
-  const key=r=>field==='duration_bucket'?durationBucket(r.duration_minutes):field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?rootCauseGroup(r[field]):r[field]||'Unknown';
+  const key=r=>field==='duration_bucket'?durationBucket(r.duration_minutes):field==='vendor'?vendorGroup(r[field]):field==='site_label'?siteLabelGroup(r[field]):field==='root_cause'?ticketRootCauseGroup(r):r[field]||'Unknown';
   const maps=report.series.map(s=>{const m=new Map();for(const r of s.rows){const name=key(r);if(!m.has(name))m.set(name,[]);m.get(name).push(r);}return m;});
   const names=new Set(maps.flatMap(m=>[...m.keys()]));
   const result=[...names].map(name=>({name,series:maps.map((m,i)=>report.series[i].covered?summarize(m.get(name)||[]):null)}));

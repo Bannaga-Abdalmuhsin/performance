@@ -9,7 +9,7 @@ import {PDFDocument} from '../dist/assets/vendor/pdf-lib-1.17.1.mjs';
 const state={view:'sites',reportView:'weekly-sa',year:2026,week:42,period:'2026-10',scope:'all',sort:'tickets',dir:-1};
 const meta={min_date:'2024-01-01',max_date:'2026-10-24'};
 const row=(id,extra={})=>({id,ticket_number:id,site_id:'COW009',region:'South',district:'Najran',site_name:'Camp',created_date:'2026-10-12',root_cause:'Generator Issue',service_impact:'Outage',parent_tt:null,repair_details:'Fault repaired',duration_minutes:60,exceeded_time:'NOT EXCEED',...extra});
-const records=[row('a'),row('b',{root_cause:'PMR',exceeded_time:'0.02',sla_breached:false}),row('c'),row('d',{site_id:'COW720',region:'Central',sla_breached:true}),row('e',{site_id:'COWUNKNOWN',exceeded_time:null,sla_breached:true}),row('child',{parent_tt:'PR123'}),row('fix',{repair_details:'Resolution fixation'}),row('nsa',{service_impact:'No impact'}),row('outside',{created_date:'2026-10-18'})];
+const records=[row('a'),row('b',{root_cause:'PMR',root_cause_details:'PMR',exceeded_time:'0.02',sla_breached:false}),row('c'),row('d',{site_id:'COW720',region:'Central',sla_breached:true}),row('e',{site_id:'COWUNKNOWN',exceeded_time:null,sla_breached:true}),row('child',{parent_tt:'PR123'}),row('fix',{repair_details:'Resolution fixation'}),row('nsa',{service_impact:'No impact'}),row('outside',{created_date:'2026-10-18'})];
 const report=(source=records,id='weekly-sa',selection=state)=>buildReport(source,selection,{},meta,id);
 
 test('COW table uses the selected period, actual fault counts, canonical causes and Exceeded TIME',()=>{
@@ -42,7 +42,7 @@ test('HTML and exported SVG escape source text and display the compact five-colu
  assert.match(chart.svg,/&lt;Region&gt;&amp;/);assert.ok(!/NaN|undefined|Infinity/.test(chart.svg));
 });
 test('site PDF exports every matching COW with repeated table headers beyond screen pagination',async()=>{
- const source=Array.from({length:31},(_,i)=>row('pr'+i,{site_id:'COW'+String(i).padStart(3,'0'),root_cause:i%2?'PMR':'Generator Issue'})),manifest=createDashboardExport({records:source,state,meta});
+ const source=Array.from({length:31},(_,i)=>row('pr'+i,{site_id:'COW'+String(i).padStart(3,'0'),root_cause:'Generator Issue',root_cause_details:i%2?'PMR':'Generator Issue'})),manifest=createDashboardExport({records:source,state,meta});
  const chart=manifest.items.find(i=>i.chart?.kind==='table').chart,chosen=selectExportItems(manifest,[chart.id]),parts=exportChartRows(chosen).flatMap(r=>r.charts);
  assert.equal(chart.data.rows.length,31);assert.deepEqual(parts.flatMap(p=>p.data.labels),chart.data.labels);assert.equal(parts.length,3);assert.equal(exportChartParts(chart).length,3);
  for(const part of parts){assert.match(part.svg,/Breaches SLA/);assert.match(part.svg,/Outages Week #42/);assert.equal(part.partCount,3);assert.ok(Number(part.svg.match(/viewBox="0 0 1100 (\d+)"/)[1])<=600);}

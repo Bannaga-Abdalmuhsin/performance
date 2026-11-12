@@ -47,7 +47,7 @@ test('item selection exports only chosen cards and charts in dashboard order',()
  assert.deepEqual(exportChartRows(selected).flatMap(row=>row.charts).map(c=>c.id),[root.id]);assert.throws(()=>selectExportItems(full,[]),/Select at least one/);assert.throws(()=>selectExportItems(full,['unknown']),/unavailable/);
 });
 test('wide and tall charts include all categories, preserving values and global scales',()=>{
- const source=Array.from({length:37},(_,i)=>row('PR'+i,'2026-08-31',{root_cause:ROOT_CAUSE_GROUPS[i%14],district:'District '+i,duration_minutes:i*11}));
+ const source=Array.from({length:37},(_,i)=>row('PR'+i,'2026-08-31',{root_cause:ROOT_CAUSE_GROUPS[i%14],root_cause_details:ROOT_CAUSE_GROUPS[i%14],district:'District '+i,duration_minutes:i*11}));
  for(const id of ['overview','weekly-nsa']){
   const selectedRecords=id==='weekly-nsa'?source.map(r=>({...r,service_impact:'No impact'})):source;
   const full=createDashboardExport({...options,records:selectedRecords,state:{...state,view:id}});
@@ -62,7 +62,7 @@ test('wide and tall charts include all categories, preserving values and global 
  }
 });
 test('PDF bytes contain selected cards and complete chart pages, with no print or script action',async()=>{
- const source=ROOT_CAUSE_GROUPS.map((root_cause,i)=>row('PR'+i,'2026-08-31',{root_cause}));
+ const source=ROOT_CAUSE_GROUPS.map((root_cause,i)=>row('PR'+i,'2026-08-31',{root_cause,root_cause_details:root_cause}));
  const manifest=createDashboardExport({...options,records:source,selectedIds:['card-repeat-rate','overview-root_cause']}),rendered=[],progress=[];
  const result=await createDashboardPdf(manifest,{rasterize:async svg=>{rendered.push(svg);return png;},assetLoader:async()=>png,onProgress:(n,total)=>progress.push([n,total])});
  assert.equal(Buffer.from(result.bytes).subarray(0,5).toString(),'%PDF-');assert.equal(result.chartPartCount,1);assert.deepEqual(result.exportedIds,['card-repeat-rate','overview-root_cause']);assert.deepEqual(progress,[[1,1]]);
